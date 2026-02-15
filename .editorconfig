@@ -42,55 +42,68 @@ dotnet_naming_style.upper_snake_case.word_separator = _
 
 # --- シンボルグループ ---
 
+# namespace, class, struct, enum, delegate, event, method, property
 dotnet_naming_symbols.public_members.applicable_kinds = namespace, class, struct, enum, delegate, event, method, property
 dotnet_naming_symbols.public_members.applicable_accessibilities = *
 
+# インターフェース
 dotnet_naming_symbols.interfaces.applicable_kinds = interface
 dotnet_naming_symbols.interfaces.applicable_accessibilities = *
 
+# プライベート / 内部フィールド
 dotnet_naming_symbols.private_fields.applicable_kinds = field
 dotnet_naming_symbols.private_fields.applicable_accessibilities = private, internal, protected, protected_internal, private_protected
 
+# パラメータ / ローカル変数
 dotnet_naming_symbols.locals_and_parameters.applicable_kinds = parameter, local
 dotnet_naming_symbols.locals_and_parameters.applicable_accessibilities = *
 
+# ローカル関数
 dotnet_naming_symbols.local_functions.applicable_kinds = local_function
 dotnet_naming_symbols.local_functions.applicable_accessibilities = *
 
+# 定数
 dotnet_naming_symbols.constants.applicable_kinds = field
 dotnet_naming_symbols.constants.required_modifiers = const
 dotnet_naming_symbols.constants.applicable_accessibilities = *
 
+# 型パラメータ (ジェネリクス)
 dotnet_naming_symbols.type_parameters.applicable_kinds = type_parameter
 dotnet_naming_symbols.type_parameters.applicable_accessibilities = *
 
 # --- ルール適用 ---
 
-# 定数 → UPPER_CASE (定数の競合を避けるため先に定義)
-dotnet_naming_rule.constants_upper.symbols = constants
-dotnet_naming_rule.constants_upper.style = upper_snake_case
-dotnet_naming_rule.constants_upper.severity = warning
+# 定数 → PascalCase (定数を先に評価)
+dotnet_naming_rule.constants_pascal.symbols = constants
+dotnet_naming_rule.constants_pascal.style = pascal_case
+dotnet_naming_rule.constants_pascal.severity = warning
 
+# インターフェース → I + PascalCase
 dotnet_naming_rule.interfaces_i_pascal.symbols = interfaces
 dotnet_naming_rule.interfaces_i_pascal.style = i_pascal_case
 dotnet_naming_rule.interfaces_i_pascal.severity = warning
 
+# 型パラメータ → PascalCase
 dotnet_naming_rule.type_parameters_pascal.symbols = type_parameters
 dotnet_naming_rule.type_parameters_pascal.style = pascal_case
 dotnet_naming_rule.type_parameters_pascal.severity = warning
 
+# パブリックメンバー → PascalCase
 dotnet_naming_rule.public_members_pascal.symbols = public_members
 dotnet_naming_rule.public_members_pascal.style = pascal_case
 dotnet_naming_rule.public_members_pascal.severity = warning
 
-dotnet_naming_rule.private_fields_underscore_camel.symbols = private_fields
-dotnet_naming_rule.private_fields_underscore_camel.style = underscore_camel_case
-dotnet_naming_rule.private_fields_underscore_camel.severity = warning
+# プライベートフィールド → camelCase
+dotnet_naming_rule.private_fields_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_camel.style = camel_case
+dotnet_naming_rule.private_fields_camel.severity = warning
 
+# パラメータ / ローカル変数 → camelCase
 dotnet_naming_rule.locals_camel.symbols = locals_and_parameters
 dotnet_naming_rule.locals_camel.style = camel_case
 dotnet_naming_rule.locals_camel.severity = warning
 
+# ローカル関数 → PascalCase
 dotnet_naming_rule.local_functions_pascal.symbols = local_functions
 dotnet_naming_rule.local_functions_pascal.style = pascal_case
 dotnet_naming_rule.local_functions_pascal.severity = warning
@@ -101,11 +114,6 @@ dotnet_naming_rule.local_functions_pascal.severity = warning
 csharp_style_var_for_built_in_types = false:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion
 csharp_style_var_elsewhere = false:suggestion
-
-# モダンな C# スタイル設定 (追加)
-csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
-csharp_style_unused_value_expression_statement_preference = discard:suggestion
-dotnet_style_null_propagation = true:suggestion
 
 # 式本体メンバー
 csharp_style_expression_bodied_methods = when_on_single_line:suggestion
@@ -127,13 +135,6 @@ dotnet_style_qualification_for_field = false:suggestion
 dotnet_style_qualification_for_property = false:suggestion
 dotnet_style_qualification_for_method = false:suggestion
 dotnet_style_qualification_for_event = false:suggestion
-
-# ===========================
-# Unity アセット / YAML (追加)
-# ===========================
-[*.{meta,unity,prefab,asset,mat,anim,controller,overrideController,spriteatlas,physicMaterial,physicsMaterial2D,guiskin,fontsettings,rt}]
-indent_style = space
-indent_size = 2
 
 # ===========================
 # JSON / アセットファイル
