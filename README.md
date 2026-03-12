@@ -43,5 +43,4 @@ git lfs pull
 
 - [Setup Guide](md/SETUP.md)
 - [Folder Structure](md/FOLDER_STRUCTURE.md)
-- [Quick Reference](md/QUICK_REFERENCE.md)
 - [Contributing](md/CONTRIBUTING.md)
