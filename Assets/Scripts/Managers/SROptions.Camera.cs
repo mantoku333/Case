@@ -1,71 +1,60 @@
 using System.ComponentModel;
-using Unity.Cinemachine;
 using UnityEngine;
 
 public partial class SROptions
 {
-    /// <summary>
-    /// 現在アクティブなカメラがFollowCamかどうか（falseならDirectFollowCam）
-    /// </summary>
-    private bool _isFollowCamActive = true;
-
     [Category("Camera")]
     [DisplayName("カメラ切り替え (Follow ⇔ DirectFollow)")]
     [Sort(0)]
     public void ToggleCameraPriority()
     {
-        // シーン内の全CinemachineCameraから名前で検索
-        var cameras = Object.FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
-
-        CinemachineCamera followCam = null;
-        CinemachineCamera directFollowCam = null;
-
-        foreach (var cam in cameras)
+        if (CameraManager.Instance != null)
         {
-            if (cam.gameObject.name == "CN_FollowCam")
-            {
-                followCam = cam;
-            }
-            else if (cam.gameObject.name == "CN_DirectFollowCam")
-            {
-                directFollowCam = cam;
-            }
-        }
-
-        if (followCam == null || directFollowCam == null)
-        {
-            Debug.LogWarning(
-                $"[SROptions] カメラが見つかりません。" +
-                $" CN_FollowCam: {(followCam != null ? "OK" : "見つからない")}" +
-                $" CN_DirectFollowCam: {(directFollowCam != null ? "OK" : "見つからない")}");
-            return;
-        }
-
-        // 切り替え
-        _isFollowCamActive = !_isFollowCamActive;
-
-        if (_isFollowCamActive)
-        {
-            // FollowCamを優先
-            followCam.Priority.Value = 10;
-            directFollowCam.Priority.Value = 0;
-            followCam.Priority.Enabled = true;
-            directFollowCam.Priority.Enabled = true;
-            Debug.Log("[SROptions] カメラ切り替え → CN_FollowCam");
+            CameraManager.Instance.ToggleCamera();
         }
         else
         {
-            // DirectFollowCamを優先
-            followCam.Priority.Value = 0;
-            directFollowCam.Priority.Value = 10;
-            followCam.Priority.Enabled = true;
-            directFollowCam.Priority.Enabled = true;
-            Debug.Log("[SROptions] カメラ切り替え → CN_DirectFollowCam");
+            Debug.LogWarning("[SROptions] CameraManagerが見つかりません。シーンに存在するか確認してください。");
         }
     }
 
     [Category("Camera")]
     [DisplayName("現在のカメラ")]
     [Sort(1)]
-    public string ActiveCameraName => _isFollowCamActive ? "CN_FollowCam" : "CN_DirectFollowCam";
+    public string ActiveCameraName 
+    {
+        get 
+        {
+            if (CameraManager.Instance != null)
+            {
+                return CameraManager.Instance.GetActiveCameraName();
+            }
+            return "CameraManagerなし";
+        }
+    }
+
+    // --- インパルス（シェイク）テスト ---
+    [Category("Camera")]
+    [DisplayName("画面揺れ (小)")]
+    [Sort(2)]
+    public void TestShakeSmall()
+    {
+        if (CameraManager.Instance != null) CameraManager.Instance.PlayShake(0.5f);
+    }
+
+    [Category("Camera")]
+    [DisplayName("画面揺れ (中)")]
+    [Sort(3)]
+    public void TestShakeMedium()
+    {
+        if (CameraManager.Instance != null) CameraManager.Instance.PlayShake(1.0f);
+    }
+
+    [Category("Camera")]
+    [DisplayName("画面揺れ (大)")]
+    [Sort(4)]
+    public void TestShakeLarge()
+    {
+        if (CameraManager.Instance != null) CameraManager.Instance.PlayShake(2.0f);
+    }
 }
