@@ -5,15 +5,27 @@ using Metroidvania.UI;
 
 namespace Metroidvania.Managers
 {
+    public enum DialogueStyle
+    {
+        ADV,
+        Bubble
+    }
+
     /// <summary>
     /// 会話システムの全体管理クラス。
     /// Input Systemからの入力（Space / South Button）を受け取り、
-    /// DialogueRunnerや各Viewへ進行の合図を送る。
+    /// DialogueRunnerや各アクティブなViewへ進行の合図を送る。
     /// </summary>
     public class DialogueManager : MonoBehaviour
     {
         [SerializeField] private DialogueRunner dialogueRunner = null!;
         [SerializeField] private InputActionReference nextAction = null!;
+        
+        [Header("Views")]
+        [SerializeField] private DialogueView advView = null!;
+        [SerializeField] private BubbleDialogueView bubbleView = null!;
+
+        public DialogueRunner Runner => dialogueRunner;
 
         private void Start()
         {
@@ -61,19 +73,44 @@ namespace Metroidvania.Managers
         {
             if (dialogueRunner == null || !dialogueRunner.IsDialogueRunning) return;
 
-            // DialogueRunnerに登録されているすべてのViewに対して「進める」指示を出す
+            // アクティブなViewのみ進行指示を出す
             foreach (var view in dialogueRunner.DialoguePresenters)
             {
-                if (view is DialogueView dv)
+                if (view.gameObject.activeInHierarchy)
                 {
-                    // DialogueView 側で独自のメソッドを用意していないため、
-                    // Yarn Spinnerの `DialogueRunner` にある `Continue()` は使用できない可能性がある。
-                    // 実際には、現在表示中のLineのCancellationToken (HurryUp / NextContent) を
-                    // 発火させる仕組みが DialogueRunner に必要だが、Yarn 3.x の Public API では非推奨化されたものが多い。
-                    // 代わりに、現在待機中のLineCancellationTokenSourceをキャンセルする処理をDialogueViewに持たせるのが確実。
-                    dv.OnContinueClicked();
+                    if (view is DialogueView dv) dv.OnContinueClicked();
+                    if (view is BubbleDialogueView bv) bv.OnContinueClicked();
                 }
             }
+        }
+
+        /// <summary>
+        /// スタイルを指定して会話を開始する（対象はBubble専用オプション）
+        /// </summary>
+        public void StartConversation(string nodeName, DialogueStyle style, Transform target = null)
+        {
+            if (dialogueRunner == null) return;
+            if (dialogueRunner.IsDialogueRunning) dialogueRunner.Stop();
+
+            if (advView == null) advView = FindFirstObjectByType<DialogueView>(FindObjectsInactive.Include);
+            if (bubbleView == null) bubbleView = FindFirstObjectByType<BubbleDialogueView>(FindObjectsInactive.Include);
+
+            if (style == DialogueStyle.ADV)
+            {
+                if (advView != null) advView.gameObject.SetActive(true);
+                if (bubbleView != null) bubbleView.gameObject.SetActive(false);
+            }
+            else if (style == DialogueStyle.Bubble)
+            {
+                if (advView != null) advView.gameObject.SetActive(false);
+                if (bubbleView != null)
+                {
+                    bubbleView.gameObject.SetActive(true);
+                    bubbleView.SetTarget(target);
+                }
+            }
+
+            dialogueRunner.StartDialogue(nodeName);
         }
     }
 }

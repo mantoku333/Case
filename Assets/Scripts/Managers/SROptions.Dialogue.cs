@@ -14,27 +14,34 @@ public partial class SROptions
         [Sort(1)]
         public void PlaySampleDialogue()
         {
-            var runner = Object.FindFirstObjectByType<DialogueRunner>();
-            if (runner != null)
+            var manager = Object.FindFirstObjectByType<Metroidvania.Managers.DialogueManager>();
+            if (manager != null)
             {
-                if (runner.IsDialogueRunning)
-                {
-                    runner.Stop();
-                }
-
-                // SampleDialogue.yarn にある 'SampleNPC' ノードを指定して再生
-                if (runner.Dialogue != null && runner.Dialogue.NodeExists("SampleNPC"))
-                {
-                    runner.StartDialogue("SampleNPC");
-                }
-                else
-                {
-                    Debug.LogError("[SRDebugger] 'SampleNPC' というノードが見つかりません。Yarn ProjectにSampleDialogue.yarnが登録されているか確認してください。");
-                }
+                manager.StartConversation("SampleNPC", Metroidvania.Managers.DialogueStyle.ADV);
             }
             else
             {
-                Debug.LogError("[SRDebugger] シーン内にDialogueRunnerが見つかりません。");
+                Debug.LogError("[SRDebugger] シーン内にDialogueManagerが見つかりません。");
+            }
+        }
+
+        [Category("Dialogue")]
+        [DisplayName("Play Bubble Dialogue (On Player)")]
+        [Sort(2)]
+        public void PlayBubbleDialogue()
+        {
+            var manager = Object.FindFirstObjectByType<Metroidvania.Managers.DialogueManager>();
+            var player = Object.FindFirstObjectByType<Metroidvania.Player.PlayerPlatformerMockController>();
+
+            if (manager != null)
+            {
+                // SRDebuggerから直呼び出しテスト用に、プレイヤーの頭上に吹き出しを出す
+                Transform target = player != null ? player.transform : null;
+                manager.StartConversation("SampleNPC", Metroidvania.Managers.DialogueStyle.Bubble, target);
+            }
+            else
+            {
+                Debug.LogError("[SRDebugger] シーン内にDialogueManagerが見つかりません。");
             }
         }
         
