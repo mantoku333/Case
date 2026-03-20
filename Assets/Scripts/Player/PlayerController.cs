@@ -16,9 +16,9 @@ public class PlayerController : MonoBehaviour
 
     [Header("地面判定")]
     [SerializeField] private GroundCheck groundCheck;
-
-    private GunController gunController;    //銃関連のスクリプト
+    [SerializeField]  private GunController gunController;    //銃関連のスクリプト
     private UmbrellaController umbrellaController;  //傘関連のスクリプ
+    //private UmbrellaAttackController umbrellaAttack;　　//傘攻撃関連のスクリプト
 
     private float moveInput;
     private bool jumpInput;
@@ -62,16 +62,48 @@ public class PlayerController : MonoBehaviour
             moveInput = 1;
         }
 
+
         //ジャンプ
         if (Keyboard.current.spaceKey.wasPressedThisFrame)
         {
             jumpInput = true;
         }
 
+
         //傘開閉
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
             umbrellaController.ToggleUmbrella();
+        }
+
+        //傘攻撃又は銃の反動
+        if (Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            if (!groundCheck.IsGround())
+            {
+                Vector2 mousePos = Mouse.current.position.ReadValue();
+
+                Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
+                    new Vector3(mousePos.x, mousePos.y, 0f)
+                );
+                mouseWorldPos.z = 0f;
+
+                Vector2 shootDirection = (mouseWorldPos - transform.position).normalized;
+                gunController.Shoot(shootDirection);
+            }
+            else
+            {
+                //傘攻撃
+            }
+        }
+
+        //銃（下撃ちジャンプ）
+        if (Keyboard.current.eKey.wasPressedThisFrame)
+        {
+            if (groundCheck.IsGround())
+            {
+                gunController.Shoot(Vector2.down);
+            }
         }
     }
 
@@ -88,7 +120,14 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            velocity.x = 0;
+            if (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open)
+            {
+                velocity.x *= 0.95f; // 空中は強く減速
+            }
+            else
+            {
+                velocity.x = 0;
+            }
         }
 
         rigidBody2d.linearVelocity = velocity;
@@ -115,16 +154,54 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void Flip()
     {
-         if (moveInput > 0)
-         {
-             transform.localScale = new Vector3(1, 1, 1);
-         }
-         else if (moveInput < 0)
-         {
-             transform.localScale = new Vector3(-1, 1, 1);
-         }
+        bool isGround = groundCheck.IsGround();
+        bool isGliding = (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open);
 
-         return;
+        // 地面
+        if (isGround)
+        {
+            if (moveInput > 0)
+            {
+                transform.localScale = new Vector3(1, 1, 1);
+            }
+            else if (moveInput < 0)
+            {
+                transform.localScale = new Vector3(-1, 1, 1);
+            }
+
+            return;
+        }
+
+        // 滑空中
+        if (isGliding)
+        {
+            Vector2 mousePos = Mouse.current.position.ReadValue();
+
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
+                new Vector3(mousePos.x, mousePos.y, 0f)
+            );
+            mouseWorldPos.z = 0f;
+
+            if (mouseWorldPos.x > transform.position.x)
+            {
+                transform.localScale = new Vector3(1, 1, 1);
+            }
+            else
+            {
+                transform.localScale = new Vector3(-1, 1, 1);
+            }
+
+            return;
+        }
+
+        // 空中（滑空なし）
+        if (moveInput > 0)
+        {
+            transform.localScale = new Vector3(1, 1, 1);
+        }
+        else if (moveInput < 0)
+        {
+            transform.localScale = new Vector3(-1, 1, 1);
+        }
     }
-
 }

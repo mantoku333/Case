@@ -1,11 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class UmbrellaController : MonoBehaviour
 {
-    private Rigidbody2D rigidBody2D;    //プレイヤーのRigidbody2Dを取得して操作するための変数
+    private Rigidbody2D rigidBody2D;
 
     /// <summary>
     /// 傘状態関連
@@ -17,51 +16,79 @@ public class UmbrellaController : MonoBehaviour
     }
 
     [Header("滑空関係")]
-    [SerializeField]
-    private float glideFallSpeed = -0.3f;
+    [SerializeField] private float glideFallSpeed = -0.3f;
+    [SerializeField] private GunController gunController;　　//銃関連のスクリプト
 
-    private UmbrellaState umbrellaState = UmbrellaState.Closed;    //現在の傘の状態を管理する変数
+    private UmbrellaState umbrellaState = UmbrellaState.Closed;
 
-    private SpriteRenderer spriteRenderer;  //傘のデバッグ用のスプライトを管理するための変数
+    private SpriteRenderer spriteRenderer;  //デバッグ用のスプライトレンダラー(傘が出来たら削除)
 
-    private GunController gunController;    //銃関連のスクリプト
 
     private void Awake()
     {
-        gunController = GetComponentInParent<Transform>().GetComponentInChildren<GunController>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         rigidBody2D = GetComponentInParent<Rigidbody2D>();
+        gunController = GetComponentInParent<GunController>();
         UpdateDebugColor();
     }
-
     private void Update()
     {
-        //Glide();
+        Glide();
     }
 
+    /// <summary>
+    /// 傘の状態のSet関数
+    /// </summary>
+    /// <param name="state">セットする傘の状態</param>
     public void SetUmbrellaState(UmbrellaState state)
     {
         umbrellaState = state;
         UpdateDebugColor();
     }
 
+    /// <summary>
+    /// 傘の状態のGet関数
+    /// </summary>
+    /// <returns>現在の傘の状態</returns>
     public UmbrellaState GetUmbrellaState()
     {
-         return umbrellaState;
+        return umbrellaState;
     }
 
+    /// <summary>
+    /// 傘の開閉を切り替える関数
+    /// </summary>
     public void ToggleUmbrella()
     {
-        if (umbrellaState == UmbrellaState.Open)
+        if (umbrellaState == UmbrellaState.Closed)
         {
-            SetUmbrellaState(UmbrellaState.Closed);
+            umbrellaState = UmbrellaState.Open;
         }
         else
         {
-            SetUmbrellaState(UmbrellaState.Open);
+            umbrellaState = UmbrellaState.Closed;
         }
 
         UpdateDebugColor();
+    }
+
+    /// <summary>
+    /// 傘での滑空を行う関数
+    /// </summary>
+    private void Glide()
+    {
+        if (umbrellaState != UmbrellaState.Open) { return; }
+
+        if (gunController != null && gunController.GetRecoiling()) { return; }
+
+        if (rigidBody2D.linearVelocity.y >= 0) { return; }
+
+        // 落下が速すぎるときだけ補正
+        if (rigidBody2D.linearVelocity.y < glideFallSpeed)
+        {
+            float diff = glideFallSpeed - rigidBody2D.linearVelocity.y;
+            rigidBody2D.AddForce(Vector2.up * diff, ForceMode2D.Force);
+        }
     }
 
     private void UpdateDebugColor()

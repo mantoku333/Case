@@ -3361,6 +3361,7 @@ MonoBehaviour:
   groundMoveSpeed: 8
   jumpForce: 15
   groundCheck: {fileID: 347066803}
+  gunController: {fileID: 2078664045}
 --- !u!61 &775024340
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -5538,6 +5539,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UmbrellaController
   glideFallSpeed: -0.3
+  gunController: {fileID: 2078664045}
 --- !u!1 &1019370419
 GameObject:
   m_ObjectHideFlags: 0
@@ -8886,10 +8888,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c007f56cecae97b4c9baa22a084c5528, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GunController
-  coolTime: 1
+  coolTime: 3
   groundRecoilPower: 15
   airRecoilPower: 25
-  m_groundCheck: {fileID: 347066803}
+  groundCheck: {fileID: 347066803}
 --- !u!1 &2100127750
 GameObject:
   m_ObjectHideFlags: 0
