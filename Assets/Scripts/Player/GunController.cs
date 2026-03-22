@@ -6,7 +6,6 @@ public class GunController : MonoBehaviour
 {
     [Header("銃の設定")]
     [SerializeField] private float coolTime = 3.0f;           //銃のクールタイム
-    [SerializeField] private float groundRecoilPower = 15.0f; //地面似る時の弾の反動
     [SerializeField] private float airRecoilPower = 25.0f;    //空中にいる時の弾の反動
 
     [Header("地面判定")]
@@ -52,21 +51,20 @@ public class GunController : MonoBehaviour
 
         Vector2 velocity = rigidBody2d.linearVelocity;
 
-        float recoilPower = airRecoilPower;
-
-        //地面で下撃ち（＝ジャンプ）
-        if (direction == Vector2.down && groundCheck.IsGround())
+        //下撃ち
+        if (direction == Vector2.down)
         {
-            recoilPower = airRecoilPower * 1.8f;
-
             velocity.y = 0;
-            velocity.x *= 0.5f;
+            rigidBody2d.linearVelocity = velocity;
+
+            Vector2 jumpVelocity = new Vector2(velocity.x, airRecoilPower);
+            rigidBody2d.linearVelocity = jumpVelocity;
         }
-
-        rigidBody2d.linearVelocity = velocity;
-
-        Vector2 recoil = -direction.normalized * recoilPower;
-        rigidBody2d.AddForce(recoil, ForceMode2D.Impulse);
+        else
+        {
+            Vector2 recoil = -direction.normalized * airRecoilPower;
+            rigidBody2d.AddForce(recoil, ForceMode2D.Impulse);
+        }
 
         Invoke(nameof(EndRecoil), 0.1f);
     }
