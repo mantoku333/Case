@@ -60,6 +60,8 @@ namespace Metroidvania.UI
 
         public override YarnTask OnDialogueStartedAsync()
         {
+            if (!gameObject.activeSelf) return YarnTask.CompletedTask;
+
             gameObject.SetActive(true);
             if (dialoguePanel != null) dialoguePanel.SetActive(true);
             if (optionsPanel != null) optionsPanel.SetActive(false);
@@ -77,6 +79,8 @@ namespace Metroidvania.UI
 
         public override YarnTask RunLineAsync(LocalizedLine line, LineCancellationToken token)
         {
+            if (!gameObject.activeSelf) return YarnTask.CompletedTask;
+
             var taskCompletionSource = new YarnTaskCompletionSource();
             RunLineInternalAsync(line, token, taskCompletionSource).Forget();
             return taskCompletionSource.Task;
@@ -207,6 +211,8 @@ namespace Metroidvania.UI
 
         public override YarnTask<DialogueOption?> RunOptionsAsync(DialogueOption[] dialogueOptions, LineCancellationToken cancellationToken)
         {
+            if (!gameObject.activeSelf) return YarnTask.FromResult<DialogueOption?>(dialogueOptions.Length > 0 ? dialogueOptions[0] : null);
+
             var taskCompletionSource = new YarnTaskCompletionSource<DialogueOption?>();
             RunOptionsInternalAsync(dialogueOptions, cancellationToken, taskCompletionSource).Forget();
             return taskCompletionSource.Task;

@@ -15,8 +15,14 @@ namespace Metroidvania.UI
         [Tooltip("実行するYarnのNode名")]
         [SerializeField] private string targetNode = "Start";
         
-        [Tooltip("DialogueRunnerの参照（未設定なら自動取得）")]
-        [SerializeField] private DialogueRunner dialogueRunner = null!;
+        [Tooltip("会話の表示形式（画面下部パネル か キャラ頭上吹き出し）")]
+        [SerializeField] private Metroidvania.Managers.DialogueStyle dialogueStyle = Metroidvania.Managers.DialogueStyle.ADV;
+        
+        [Tooltip("Bubble形式の場合に吹き出しを追従させる対象（未設定ならこのオブジェクトの頭上に出ます）")]
+        [SerializeField] private Transform bubbleTarget;
+        
+        [Tooltip("DialogueManagerの参照（未設定なら自動取得）")]
+        [SerializeField] private Metroidvania.Managers.DialogueManager dialogueManager = null!;
 
         [Header("Trigger Behavior")]
         [Tooltip("True: トリガー範囲に入ったら自動で開始 / False: 手動で開始処理を呼ぶ")]
@@ -27,9 +33,9 @@ namespace Metroidvania.UI
 
         private void Start()
         {
-            if (dialogueRunner == null)
+            if (dialogueManager == null)
             {
-                dialogueRunner = FindFirstObjectByType<DialogueRunner>();
+                dialogueManager = FindFirstObjectByType<Metroidvania.Managers.DialogueManager>();
             }
         }
 
@@ -59,7 +65,7 @@ namespace Metroidvania.UI
         /// </summary>
         public void Interact()
         {
-            if (_isPlayerInRange && dialogueRunner != null && !dialogueRunner.IsDialogueRunning)
+            if (_isPlayerInRange && dialogueManager != null && dialogueManager.Runner != null && !dialogueManager.Runner.IsDialogueRunning)
             {
                 StartDialogue();
             }
@@ -67,23 +73,26 @@ namespace Metroidvania.UI
 
         private void StartDialogue()
         {
-            if (dialogueRunner == null) return;
+            if (dialogueManager == null) return;
             
-            if (!dialogueRunner.IsDialogueRunning)
+            if (dialogueManager.Runner != null && !dialogueManager.Runner.IsDialogueRunning)
             {
-                dialogueRunner.StartDialogue(targetNode);
+                Transform target = bubbleTarget != null ? bubbleTarget : transform;
+                dialogueManager.StartConversation(targetNode, dialogueStyle, target);
                 
                 if (destroyAfterDialogue)
                 {
-                    // 会話終了時に自身を削除する処理を仕込む
-                    dialogueRunner.onDialogueComplete?.AddListener(OnDialogueCompleteAndDestroy);
+                    dialogueManager.Runner.onDialogueComplete?.AddListener(OnDialogueCompleteAndDestroy);
                 }
             }
         }
 
         private void OnDialogueCompleteAndDestroy()
         {
-            dialogueRunner.onDialogueComplete?.RemoveListener(OnDialogueCompleteAndDestroy);
+            if (dialogueManager != null && dialogueManager.Runner != null)
+            {
+                dialogueManager.Runner.onDialogueComplete?.RemoveListener(OnDialogueCompleteAndDestroy);
+            }
             Destroy(gameObject);
         }
     }
