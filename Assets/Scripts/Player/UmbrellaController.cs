@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class UmbrellaController : MonoBehaviour
 {
-    
     private Rigidbody2D rigidBody2D; //PlayerのRigidbody2D
 
     /// <summary>
@@ -17,7 +16,8 @@ public class UmbrellaController : MonoBehaviour
     }
 
     [Header("滑空関係")]
-    [SerializeField] private float glideFallSpeed = -0.3f;   //滑空中の落下速度
+    [SerializeField] private float glideFallSpeed = 10.0f;   //滑空中の落下速度
+    [SerializeField] private float glideMoveSpeed = 3.5f;
     [SerializeField] private GunController gunController;　　//銃関連のスクリプト
 
     private UmbrellaState umbrellaState = UmbrellaState.Closed;  //現在の傘の状態
@@ -29,7 +29,10 @@ public class UmbrellaController : MonoBehaviour
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
         rigidBody2D = GetComponentInParent<Rigidbody2D>();
-        gunController = GetComponentInParent<GunController>();
+        if (gunController == null)
+        {
+            gunController = GetComponentInParent<GunController>();
+        }
         UpdateDebugColor();
     }
 
@@ -55,6 +58,29 @@ public class UmbrellaController : MonoBehaviour
     public UmbrellaState GetUmbrellaState()
     {
         return umbrellaState;
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="glideMoveSpeed"></param>
+    public void SetGlideMoveSpeed(float Speed)
+    {
+        glideMoveSpeed = Speed;
+    }
+
+    public float GetGlideMoveSpeed()
+    {
+        return glideMoveSpeed;
+    }
+
+    public void SetFallSpeed(float Speed)
+    {
+        glideFallSpeed = Speed;
+    }
+    public float GetFallSpeed()
+    {
+        return glideFallSpeed;
     }
 
     /// <summary>

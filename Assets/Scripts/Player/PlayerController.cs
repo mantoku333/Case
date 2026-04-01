@@ -1,5 +1,6 @@
-﻿using UnityEngine.InputSystem;
+﻿using GameName.Player;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// プレイヤーの基本操作を管理するクラス
@@ -8,89 +9,52 @@ using UnityEngine;
 /// </summary>
 public class PlayerController : MonoBehaviour
 {
-    private Rigidbody2D rigidBody2d;
+    //--------------ステータス関連------------------
+    [Header("プレイヤーステータス")]
+    [SerializeField] private PlayerStatsData playerStatsData;
 
-    [Header("移動設定")]
-    [SerializeField] private float groundMoveSpeed = 5.0f;     //地面での移動速度
+    //--------------移動関連------------------
+    private Rigidbody2D m_RigidBody2D;
+    private float m_MoveInput;
+    private bool m_JumpInput;
+    private bool m_IsGround;
 
-    [Header("ジャンプ設定")]
-    [SerializeField] private float jumpForce = 8.0f;           //ジャンプの強さ
-
-    private GroundCheck groundCheck;                           //地面判定のスクリプト
-    private GunController gunController;                       //銃関連のスクリプト
-    private UmbrellaController umbrellaController;             //傘関連のスクリプト
-    private UmbrellaAttackController umbrellaAttackController; //傘攻撃関連のスクリプト
-    private UmbrellaParryController  umbrellaParryController;  //パリィ関連のスクリプト
+    //--------------各種コンポーネント参照関連------------------
+    private GroundCheck groundCheck;
+    private GunController gunController;
+    private UmbrellaController umbrellaController;
+    private UmbrellaAttackController umbrellaAttackController;
+    private UmbrellaParryController umbrellaParryController;
     private ParryHitbox parryHitbox;
-    private DodgeController dodgeController;                   //回避関連のスクリプト
-
-    private float moveInput;   //移動入力の値(-1:左,1:右)
-    private bool  jumpInput;   //ジャンプ入力のフラグ
-    private bool   isGround;　 //地面にいるかどうかのフラグ
+    private DodgeController dodgeController;
 
     private void Awake()
     {
-        rigidBody2d = GetComponent<Rigidbody2D>();
+        m_RigidBody2D = GetComponent<Rigidbody2D>();
+
+        if (m_RigidBody2D == null)
+        {
+            Debug.LogError("Rigidbody2Dが見つかっていません！");
+        }
     }
 
-    void Start()
+    private void Start()
     {
-        //各スクリプトの取得とエラーチェック
-        //地面判定のスクリプト
-        groundCheck = GetComponentInChildren<GroundCheck>();
-        if (groundCheck == null)
-        {
-            Debug.LogError("groundCheckが見つかっていません！");
-        }
-
-        //銃のスクリプト
-        gunController = GetComponentInChildren<GunController>();
-        if (gunController == null)
-        {
-            Debug.LogError("gunControllerが見つかっていません！");
-        }
-
-        //傘のスクリプト
-        umbrellaController = GetComponentInChildren<UmbrellaController>();
-        if (umbrellaController == null)
-        {
-            Debug.LogError("umbrellaControllerが見つかっていません！");
-        }
-
-        //傘攻撃のスクリプト
-        umbrellaAttackController = GetComponentInChildren<UmbrellaAttackController>();
-        if (umbrellaAttackController == null)
-        {
-            Debug.LogError("UmbrellaAttackControllerが見つかっていません！");
-        }
-
-        //パリィのスクリプト
-        umbrellaParryController = GetComponentInChildren<UmbrellaParryController>();
-        if (umbrellaParryController == null)
-        {
-            Debug.LogError("umbrellaParryControllerが見つかっていません！");
-        }
-
-        //パリィの当たり判定のスクリプト
-        parryHitbox = GetComponentInChildren<ParryHitbox>();
-        if (parryHitbox == null)
-        {
-            Debug.LogError("parryHitboxが見つかっていません！");
-        }
-
-        //回避のスクリプト
-        dodgeController = GetComponent<DodgeController>();
-        if (dodgeController == null)
-        {
-                Debug.LogError("dodgeControllerが見つかっていません！");
-        }
+        FindComponents();
+        ApplyStats();
     }
 
     private void Update()
     {
+        if (groundCheck == null)
+        {
+            return;
+        }
+
+        m_IsGround = groundCheck.IsGround();
+
         GetInput();
         Flip();
-        isGround = groundCheck.IsGround();
     }
 
     private void FixedUpdate()
@@ -99,26 +63,118 @@ public class PlayerController : MonoBehaviour
         Jump();
     }
 
+    //--------Set関数-------
+    public void SetPlayerStatsData(PlayerStatsData playerStatsData)
+    {
+        playerStatsData = playerStatsData;
+        ApplyStats();
+    }
+
+    //--------Get関数-------
+    public PlayerStatsData GetPlayerStatsData()
+    {
+        return playerStatsData;
+    }
+
+    //--------------初期化関連------------------
+    private void FindComponents()
+    {
+        groundCheck = GetComponentInChildren<GroundCheck>();
+        if (groundCheck == null)
+        {
+            Debug.LogError("GroundCheckが見つかっていません！");
+        }
+
+        gunController = GetComponentInChildren<GunController>();
+        if (gunController == null)
+        {
+            Debug.LogError("GunControllerが見つかっていません！");
+        }
+
+        umbrellaController = GetComponentInChildren<UmbrellaController>();
+        if (umbrellaController == null)
+        {
+            Debug.LogError("UmbrellaControllerが見つかっていません！");
+        }
+
+        umbrellaAttackController = GetComponentInChildren<UmbrellaAttackController>();
+        if (umbrellaAttackController == null)
+        {
+            Debug.LogError("UmbrellaAttackControllerが見つかっていません！");
+        }
+
+        umbrellaParryController = GetComponentInChildren<UmbrellaParryController>();
+        if (umbrellaParryController == null)
+        {
+            Debug.LogError("UmbrellaParryControllerが見つかっていません！");
+        }
+
+        parryHitbox = GetComponentInChildren<ParryHitbox>();
+        if (parryHitbox == null)
+        {
+            Debug.LogError("ParryHitboxが見つかっていません！");
+        }
+
+        dodgeController = GetComponent<DodgeController>();
+        if (dodgeController == null)
+        {
+            Debug.LogError("DodgeControllerが見つかっていません！");
+        }
+    }
+
+    private void ApplyStats()
+    {
+        if (playerStatsData == null)
+        {
+            Debug.LogWarning("PlayerStatsDataが設定されていません。Inspectorから設定してください。");
+            return;
+        }
+
+        if (umbrellaController != null)
+        {
+            umbrellaController.SetGlideMoveSpeed(playerStatsData.GlideMoveSpeed);
+            umbrellaController.SetFallSpeed(playerStatsData.FallSpeed);
+        }
+
+        if (gunController != null)
+        {
+            gunController.SetAirRecoilPower(playerStatsData.GunRecoilForce);
+            gunController.SetCoolTime(playerStatsData.ReloadSeconds);
+        }
+
+        if (umbrellaAttackController != null)
+        {
+            umbrellaAttackController.SetAttackPerSecond(playerStatsData.AttackPerSecond);
+        }
+    }
+
+    //--------------入力関連------------------
     private void GetInput()
     {
+        if (umbrellaController == null)
+        {
+            return;
+        }
+
         bool isGliding = (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open);
 
-        //基本移動(A/Dキーで左右移動)
-        moveInput = 0;
+        m_MoveInput = 0.0f;
+
         if (Keyboard.current.aKey.isPressed)
         {
-            moveInput = -1;
+            m_MoveInput = -1.0f;
         }
         else if (Keyboard.current.dKey.isPressed)
         {
-            moveInput = 1;
+            m_MoveInput = 1.0f;
         }
 
-        //回避(左シフトキー+移動キーで左右に回避)
         if (
             Keyboard.current.leftShiftKey.wasPressedThisFrame ||
-            (Keyboard.current.leftShiftKey.isPressed &&
-            (Keyboard.current.aKey.wasPressedThisFrame || Keyboard.current.dKey.wasPressedThisFrame))
+            (
+                Keyboard.current.leftShiftKey.isPressed &&
+                (Keyboard.current.aKey.wasPressedThisFrame || Keyboard.current.dKey.wasPressedThisFrame)
+            )
         )
         {
             Vector2 dodgeDirection = Vector2.zero;
@@ -136,169 +192,220 @@ public class PlayerController : MonoBehaviour
             {
                 if (dodgeController != null)
                 {
-                    dodgeController.Dodge(dodgeDirection);
+                    dodgeController.Dodge(dodgeDirection).Forget();
                 }
             }
         }
 
-        //ジャンプ(スペースキーでジャンプ)
         if (Keyboard.current.spaceKey.wasPressedThisFrame)
         {
-            jumpInput = true;
+            m_JumpInput = true;
         }
 
-        //パリィor傘開閉 (右クリックでパリィ、敵の攻撃がない場合は傘の開け閉め)
         if (Mouse.current.rightButton.wasPressedThisFrame)
         {
-            if (parryHitbox != null && parryHitbox.HasEnemyAttack())
-            {
-                Debug.Log("パリィ成功！");
-
-                umbrellaParryController.Parry();
-
-                var bullets = parryHitbox.GetEnemyAttacks();
-
-                foreach (var bullet in bullets)
-                {
-                    if (bullet != null)
-                    {
-                        Destroy(bullet);
-                    }
-                }
-            }
-            else
-            {
-                umbrellaController.ToggleUmbrella();
-            }
+            HandleRightClick();
         }
 
-        //傘攻撃又は銃の反動(左クリックで傘攻撃、空中にいる場合は銃の反動)
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
-            if (!isGround)
-            {
-                Vector2 mousePos = Mouse.current.position.ReadValue();
-
-                Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
-                    new Vector3(mousePos.x, mousePos.y, 0f)
-                );
-                mouseWorldPos.z = 0f;
-
-                Vector2 shootDirection = (mouseWorldPos - transform.position).normalized;
-                gunController.Shoot(shootDirection);
-            }
-            else
-            {
-                if (!isGliding)
-                {
-                    umbrellaAttackController.Attack();
-                }
-            }
+            HandleLeftClick(isGliding);
         }
 
-        //銃での飛び上がり(空中でEキーを押すと銃の反動で飛び上がる)
         if (Keyboard.current.eKey.wasPressedThisFrame)
         {
-            if (isGround)
+            if (m_IsGround)
             {
-                gunController.JumpRecoil();
+                if (gunController != null)
+                {
+                    gunController.JumpRecoil();
+                }
             }
         }
     }
 
-    /// <summary>
-    /// プレイヤーの左右移動処理の関数
-    /// </summary>
-    private void Move()
+    private void HandleRightClick()
     {
-        Vector2 velocity = rigidBody2d.linearVelocity;
-
-        if (moveInput != 0)
+        if (umbrellaController == null)
         {
-            velocity.x = moveInput * groundMoveSpeed;
+            return;
+        }
+
+        if (parryHitbox != null && parryHitbox.HasEnemyAttack())
+        {
+            if (umbrellaParryController != null)
+            {
+                umbrellaParryController.Parry().Forget();
+            }
+
+            var bullets = parryHitbox.GetEnemyAttacks();
+
+            foreach (var bullet in bullets)
+            {
+                if (bullet != null)
+                {
+                    Destroy(bullet);
+                }
+            }
+
+            parryHitbox.ClearEnemyAttacks();
         }
         else
         {
-            if (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open)
+            umbrellaController.ToggleUmbrella();
+        }
+    }
+
+    private void HandleLeftClick(bool isGliding)
+    {
+        if (!m_IsGround)
+        {
+            if (gunController == null)
             {
-                velocity.x *= 0.95f; // 空中は強く減速
+                return;
+            }
+
+            Vector2 mousePos = Mouse.current.position.ReadValue();
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0.0f));
+            mouseWorldPos.z = 0.0f;
+
+            Vector2 shootDirection = (mouseWorldPos - transform.position).normalized;
+            gunController.Shoot(shootDirection);
+            return;
+        }
+
+        if (!isGliding)
+        {
+            if (umbrellaAttackController != null)
+            {
+                umbrellaAttackController.Attack().Forget();
+            }
+        }
+    }
+
+    //--------------移動関連------------------
+    private void Move()
+    {
+        if (m_RigidBody2D == null)
+        {
+            return;
+        }
+
+        if (playerStatsData == null)
+        {
+            return;
+        }
+
+        if (umbrellaController == null)
+        {
+            return;
+        }
+
+        Vector2 velocity = m_RigidBody2D.linearVelocity;
+        bool isGliding = (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open);
+
+        if (m_MoveInput != 0.0f)
+        {
+            float moveSpeed = playerStatsData.MoveSpeed;
+
+            if (isGliding)
+            {
+                moveSpeed = umbrellaController.GetGlideMoveSpeed();
+            }
+
+            velocity.x = m_MoveInput * moveSpeed;
+        }
+        else
+        {
+            if (isGliding)
+            {
+                velocity.x *= 0.95f;
             }
             else
             {
-                velocity.x = 0;
+                velocity.x = 0.0f;
             }
         }
 
-        rigidBody2d.linearVelocity = velocity;
+        m_RigidBody2D.linearVelocity = velocity;
     }
 
-    /// <summary>
-    /// プレイヤーのジャンプ処理の関数
-    /// </summary>
     private void Jump()
     {
-        if (jumpInput)
+        if (!m_JumpInput)
         {
-            if (isGround)
-            {
-                rigidBody2d.linearVelocity = new Vector2(rigidBody2d.linearVelocity.x, jumpForce);
-            }
-
-            jumpInput = false;
+            return;
         }
+
+        if (m_RigidBody2D == null)
+        {
+            m_JumpInput = false;
+            return;
+        }
+
+        if (playerStatsData == null)
+        {
+            m_JumpInput = false;
+            return;
+        }
+
+        if (m_IsGround)
+        {
+            m_RigidBody2D.linearVelocity = new Vector2(m_RigidBody2D.linearVelocity.x, playerStatsData.JumpForce);
+        }
+
+        m_JumpInput = false;
     }
 
-    /// <summary>
-    /// プレイヤーの向き処理の関数
-    /// </summary>
+    //--------------向き関連------------------
     private void Flip()
     {
+        if (umbrellaController == null)
+        {
+            return;
+        }
+
         bool isGliding = (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open);
 
-        //地面→進んでいる方向に合わせて設定
-        if (isGround)
+        if (m_IsGround)
         {
-            if (moveInput > 0)
+            if (m_MoveInput > 0.0f)
             {
-                transform.localScale = new Vector3(1, 1, 1);
+                transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
             }
-            else if (moveInput < 0)
+            else if (m_MoveInput < 0.0f)
             {
-                transform.localScale = new Vector3(-1, 1, 1);
+                transform.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
             }
 
             return;
         }
 
-        //滑空中→マウスの位置に合わせて設定
         if (isGliding)
         {
             Vector2 mousePos = Mouse.current.position.ReadValue();
-
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
-                new Vector3(mousePos.x, mousePos.y, 0f));
-            mouseWorldPos.z = 0f;
+            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0.0f));
+            mouseWorldPos.z = 0.0f;
 
             if (mouseWorldPos.x > transform.position.x)
             {
-                transform.localScale = new Vector3(1, 1, 1);
+                transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
             }
             else
             {
-                transform.localScale = new Vector3(-1, 1, 1);
+                transform.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
             }
 
             return;
         }
 
-        //空中→進んでいる方向に合わせて設定
-        if (moveInput > 0)
+        if (m_MoveInput > 0.0f)
         {
-            transform.localScale = new Vector3(1, 1, 1);
+            transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
         }
-        else if (moveInput < 0)
+        else if (m_MoveInput < 0.0f)
         {
-            transform.localScale = new Vector3(-1, 1, 1);
+            transform.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
         }
     }
 }
