@@ -18,15 +18,15 @@ public class UmbrellaController : MonoBehaviour
 
     [Header("滑空関係")]
     [SerializeField] private float glideFallSpeed = -0.3f;   //滑空中の落下速度
-    [SerializeField] private GunController gunController;　　//銃関連のスクリプト
+    [SerializeField] private float glideMoveSpeed = 3.5f;
+    [SerializeField] private GunController gunController;  //銃関連のスクリプト
+
+    private UmbrellaState umbrellaState = UmbrellaState.Closed;  //現在の傘の状態
+    private SpriteRenderer spriteRenderer;  //デバッグ用のスプライトレンダラー(傘が出来たら削除)
 
     [Header("SE")]
     [SerializeField] private AudioClip umbrella_open;       //傘開くSE
     [SerializeField] private AudioClip umbrella_close;      //傘閉じるSE
-
-    private UmbrellaState umbrellaState = UmbrellaState.Closed;  //現在の傘の状態
-
-    private SpriteRenderer spriteRenderer;  //デバッグ用のスプライトレンダラー(傘が出来たら削除)
 
     private AudioSource audioSource;        //AudioSource
 
@@ -64,6 +64,30 @@ public class UmbrellaController : MonoBehaviour
     }
 
     /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="glideMoveSpeed"></param>
+    public void SetGlideMoveSpeed(float speed)
+    {
+        glideMoveSpeed = speed;
+    }
+
+    public float GetGlideMoveSpeed()
+    {
+        return glideMoveSpeed;
+    }
+
+    public void SetFallSpeed(float speed)
+    {
+        glideFallSpeed = speed;
+    }
+    public float GetFallSpeed()
+    {
+        return glideFallSpeed;
+    }
+
+
+    /// <summary>
     /// 傘の開閉を切り替える関数
     /// </summary>
     public void ToggleUmbrella()
@@ -97,11 +121,16 @@ public class UmbrellaController : MonoBehaviour
 
         if (rigidBody2D.linearVelocity.y >= 0) { return; }
 
+        if (rigidBody2D == null) { return; }
+
+        float maxFallVelocity = -Mathf.Abs(glideFallSpeed);
+
         // 落下が速すぎるときだけ補正
-        if (rigidBody2D.linearVelocity.y < glideFallSpeed)
+        if (rigidBody2D.linearVelocity.y < maxFallVelocity)
         {
-            float diff = glideFallSpeed - rigidBody2D.linearVelocity.y;
-            rigidBody2D.AddForce(Vector2.up * diff, ForceMode2D.Force);
+            Vector2 velocity = rigidBody2D.linearVelocity;
+            velocity.y = maxFallVelocity;
+            rigidBody2D.linearVelocity = velocity;
         }
     }
 

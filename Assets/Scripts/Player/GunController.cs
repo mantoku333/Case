@@ -16,9 +16,7 @@ public class GunController : MonoBehaviour
     [SerializeField] private AudioClip player_gun_fire;  //発砲時SE
 
     private bool isRecoiling = false;   　//反動が起きているかどうか
-
     private float currentCoolTime = 0.0f; //クールタイムの残り時間    
-
     private Rigidbody2D rigidBody2d;      //反動を加えるためのRigidbody2D
 
     private AudioSource audioSource;      //AudioSource
@@ -40,6 +38,38 @@ public class GunController : MonoBehaviour
             currentCoolTime -= Time.deltaTime;
         }
     }
+
+
+    /// <summary>
+    /// 反動が起きているかどうかを返すGet関数
+    /// </summary>
+    /// <returns>反動が起きているかのbool値</returns>
+    public bool GetRecoiling()
+    {
+        return isRecoiling;
+    }
+
+    public void SetAirRecoilPower(float force)
+    {
+        airRecoilPower = force;
+    }
+    public float GetAirRecoilPower()
+    {
+        return airRecoilPower;
+    }
+
+
+    public void SetCoolTime(float time)
+    {
+        coolTime = time;
+    }
+
+    public float GetCoolTime()
+    {
+        return coolTime;
+    }
+
+
 
     /// <summary>
     /// 銃の発射処理を行う関数
@@ -65,10 +95,9 @@ public class GunController : MonoBehaviour
     /// <param name="direction">反動の方向</param>
     void ApplyRecoil(Vector2 direction)
     {
-        if (rigidBody2d == null)
-        {
-            return;
-        }
+        if (rigidBody2d == null){ return; }
+
+        if (direction == Vector2.zero){ return; }
 
         isRecoiling = true;
 
@@ -76,7 +105,6 @@ public class GunController : MonoBehaviour
         rigidBody2d.linearDamping = 2.0f;
 
         //現在の速度を取得
-        Vector2 velocity = rigidBody2d.linearVelocity;
         Vector2 recoil = -direction.normalized * airRecoilPower;
         rigidBody2d.AddForce(recoil, ForceMode2D.Impulse);
 
@@ -88,24 +116,17 @@ public class GunController : MonoBehaviour
     /// </summary>
     public void JumpRecoil()
     {
-        if (currentCoolTime > 0)
-        {
-            return;
-        }
+        if (currentCoolTime > 0){ return; }
 
-        if (rigidBody2d == null)
-        {
-            return;
-        }
+        if (rigidBody2d == null){ return; }
 
         isRecoiling = true;
-
         rigidBody2d.linearDamping = 5.0f;
 
         Vector2 velocity = rigidBody2d.linearVelocity;
 
         //縦速度リセット
-        velocity.y = 0;
+        velocity.y = 0.0f;
         rigidBody2d.linearVelocity = velocity;
 
         Vector2 jumpVelocity = new Vector2(velocity.x, jumpRecoilPower);
@@ -127,14 +148,6 @@ public class GunController : MonoBehaviour
         rigidBody2d.linearDamping = 0.0f;
     }
 
-    /// <summary>
-    /// 反動が起きているかどうかを返すGet関数
-    /// </summary>
-    /// <returns>反動が起きているかのbool値</returns>
-    public bool GetRecoiling()
-    {
-        return isRecoiling;
-    }
 
     /// <summary>
     /// SE再生用関数
