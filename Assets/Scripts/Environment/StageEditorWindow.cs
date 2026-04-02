@@ -118,9 +118,9 @@ namespace GameName.EditorTools
                     currentPlacementType = PlacementType.Erase;
                 }
 
-                if (GUILayout.Button("Stop"))
+                if (GUILayout.Button("Reset"))
                 {
-                    currentPlacementType = PlacementType.None;
+                    ResetEditorState();
                 }
             }
 
@@ -253,6 +253,8 @@ namespace GameName.EditorTools
             }
 
             Vector3Int cell = targetStageTilemap.WorldToCell(worldPosition);
+            Debug.Log("world" + worldPosition);
+            Debug.Log("cell" + cell);
 
             Undo.RecordObject(targetStageTilemap, "Paint Stage Tile");
             targetStageTilemap.SetTile(cell, palette.StageTile);
@@ -388,6 +390,25 @@ namespace GameName.EditorTools
             }
 
             return AssetDatabase.LoadAssetAtPath<T>(assetPath);
+        }
+
+        /// <summary>
+        /// 配置されているeditorやtilemapをリセット
+        /// </summary>
+        private void ResetEditorState()
+        {
+            currentPlacementType = PlacementType.None;
+
+            palette = null;
+            playerStatsData = null;
+            targetStageTilemap = null;
+
+            DestroyCachedEditor();
+
+            EditorPrefs.DeleteKey(PaletteGuidKey);
+            EditorPrefs.DeleteKey(PlayerStatsGuidKey);
+
+            Repaint();
         }
     }
 }
