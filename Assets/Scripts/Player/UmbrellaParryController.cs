@@ -37,10 +37,7 @@ public class UmbrellaParryController : MonoBehaviour
     /// <returns></returns>
     public async UniTaskVoid Parry()
     {
-        if (isParrying)
-        {
-            return;
-        }
+        if (isParrying){ return; }
 
         //傘開けるSE再生
         PlaySE(umbrella_open);
@@ -58,6 +55,11 @@ public class UmbrellaParryController : MonoBehaviour
         //パリィ状態が続く時間待機
         await UniTask.Delay((int)(parryDuration * 1000));
 
+        //if (parryCollider != null)
+        //{
+        //    parryCollider.enabled = false;
+        //}
+
         isParrying = false;
     }
 
@@ -67,10 +69,7 @@ public class UmbrellaParryController : MonoBehaviour
     /// <returns></returns>
     private async UniTask FlashEffect()
     {
-        if (playerSprite == null)
-        {
-            return;
-        }
+        if (playerSprite == null){ return; }
 
         playerSprite.color = parryColor;
 
