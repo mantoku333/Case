@@ -253,8 +253,8 @@ namespace GameName.EditorTools
             }
 
             Vector3Int cell = targetStageTilemap.WorldToCell(worldPosition);
-            Debug.Log("world" + worldPosition);
-            Debug.Log("cell" + cell);
+            //Debug.Log("world" + worldPosition);
+            //Debug.Log("cell" + cell);
 
             Undo.RecordObject(targetStageTilemap, "Paint Stage Tile");
             targetStageTilemap.SetTile(cell, palette.StageTile);
