@@ -7,9 +7,24 @@ using UnityEngine;
 /// 左右移動、ジャンプ、向き制御、銃反動、傘の開け閉め、敵への攻撃
 /// 入力を受け取り、それぞれの機能へ処理を振り分ける
 /// </summary>
+[RequireComponent(typeof(PlayerInput))]
 public class PlayerController : MonoBehaviour
 {
+    private const string PlayerActionMapName = "Player";
+
+    private static class InputActionNames
+    {
+        public const string Move = "Move";
+        public const string Aim = "Aim";
+        public const string Attack = "Attack";
+        public const string Jump = "Jump";
+        public const string Dodge = "Dodge";
+        public const string UmbrellaToggle = "UmbrellaToggle";
+        public const string RecoilJump = "RecoilJump";
+    }
+
     private Rigidbody2D rigidBody2d;
+    private PlayerInput playerInput;
 
     [Header("プレイヤーステータス")]
     [SerializeField] private PlayerStatsData playerStatsData;
@@ -31,9 +46,20 @@ public class PlayerController : MonoBehaviour
     private UmbrellaParryController  umbrellaParryController;  //パリィ関連のスクリプト
     private ParryHitbox parryHitbox;
     private DodgeController dodgeController;                   //回避関連のスクリプト
+
+    //-------入力関連--------
+    private InputAction moveAction;
+    private InputAction aimAction;
+    private InputAction jumpAction;
+    private InputAction attackAction;
+    private InputAction dodgeAction;
+    private InputAction recoilJumpAction;
+    private InputAction umbrellaToggleAction;
+    private bool inputActionsReady;
     private void Awake()
     {
         rigidBody2d = GetComponent<Rigidbody2D>();
+        playerInput = GetComponent<PlayerInput>();
 
         if (rigidBody2d == null)
         {
@@ -46,6 +72,16 @@ public class PlayerController : MonoBehaviour
         {
             Debug.LogError("Animatorが見つかっていません！");
         }
+    }
+
+    private void OnEnable()
+    {
+        BindInputActions();
+    }
+
+    private void OnDisable()
+    {
+        inputActionsReady = false;
     }
 
     private void Start()
@@ -165,18 +201,16 @@ public class PlayerController : MonoBehaviour
     private void GetInput()
     {
         if (umbrellaController == null){ return; }
+        if (!inputActionsReady){ return; }
 
         bool isGliding = (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open);
         moveInput = 0.0f;
 
         // 左右移動の入力
-        if (Keyboard.current.aKey.isPressed)
+        if (moveAction != null)
         {
-            moveInput = -1.0f;
-        }
-        else if (Keyboard.current.dKey.isPressed)
-        {
-            moveInput = 1.0f;
+            Vector2 move = moveAction.ReadValue<Vector2>();
+            moveInput = Mathf.Clamp(move.x, -1.0f, 1.0f);
         }
 
         if(dodgeController != null && dodgeController.IsDodging())
@@ -186,17 +220,17 @@ public class PlayerController : MonoBehaviour
         }
 
         //回避(左シフトキー+移動キーで左右に回避)
-        if (Keyboard.current.leftShiftKey.wasPressedThisFrame ||
-           (Keyboard.current.leftShiftKey.isPressed &&
-           (Keyboard.current.aKey.wasPressedThisFrame || Keyboard.current.dKey.wasPressedThisFrame)))
+        bool isDodgeTriggered = IsPressedThisFrame(dodgeAction) ||
+            (IsPressed(dodgeAction) && IsPressedThisFrame(moveAction));
+        if (isDodgeTriggered)
         {
             Vector2 dodgeDirection = Vector2.zero;
 
-            if (Keyboard.current.aKey.isPressed)
+            if (moveInput < -0.01f)
             {
                 dodgeDirection = Vector2.left;
             }
-            else if (Keyboard.current.dKey.isPressed)
+            else if (moveInput > 0.01f)
             {
                 dodgeDirection = Vector2.right;
             }
@@ -211,13 +245,13 @@ public class PlayerController : MonoBehaviour
         }
 
         //ジャンプ(スペースキーでジャンプ)
-        if (Keyboard.current.spaceKey.wasPressedThisFrame)
+        if (IsPressedThisFrame(jumpAction))
         {
             jumpInput = true;
         }
 
         //パリィor傘開閉 (右クリックでパリィ、敵の攻撃がない場合は傘の開け閉め)
-        if (Mouse.current.rightButton.wasPressedThisFrame)
+        if (IsPressedThisFrame(umbrellaToggleAction))
         {
             if (parryHitbox != null && parryHitbox.HasEnemyAttack())
             {
@@ -242,23 +276,28 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        if (Mouse.current.leftButton.wasPressedThisFrame)
+        if (IsPressedThisFrame(attackAction))
         {
             if (!isGround)
             {
-                Vector2 mousePos = Mouse.current.position.ReadValue();
+                if (TryGetAimScreenPosition(out var pointerPos))
+                {
+                    Camera mainCamera = Camera.main;
+                    if (mainCamera != null && gunController != null)
+                    {
+                        Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(
+                            new Vector3(pointerPos.x, pointerPos.y, 0f)
+                        );
+                        mouseWorldPos.z = 0f;
 
-                Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(
-                    new Vector3(mousePos.x, mousePos.y, 0f)
-                );
-                mouseWorldPos.z = 0f;
-
-                Vector2 shootDirection = (mouseWorldPos - transform.position).normalized;
-                gunController.Shoot(shootDirection);
+                        Vector2 shootDirection = (mouseWorldPos - transform.position).normalized;
+                        gunController.Shoot(shootDirection);
+                    }
+                }
             }
             else
             {
-                if (!isGliding)
+                if (!isGliding && umbrellaAttackController != null)
                 {
                     umbrellaAttackController.Attack();
                 }
@@ -267,11 +306,14 @@ public class PlayerController : MonoBehaviour
 
 
         //銃での飛び上がり(空中でEキーを押すと銃の反動で飛び上がる)
-        if (Keyboard.current.eKey.wasPressedThisFrame)
+        if (IsPressedThisFrame(recoilJumpAction))
         {
             if (isGround)
             {
-                gunController.JumpRecoil();
+                if (gunController != null)
+                {
+                    gunController.JumpRecoil();
+                }
             }
         }
     }
@@ -383,8 +425,18 @@ public class PlayerController : MonoBehaviour
 
         if (isGliding)
         {
-            Vector2 mousePos = Mouse.current.position.ReadValue();
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0.0f));
+            if (!TryGetAimScreenPosition(out var pointerPos))
+            {
+                return;
+            }
+
+            Camera mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                return;
+            }
+
+            Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(new Vector3(pointerPos.x, pointerPos.y, 0.0f));
             mouseWorldPos.z = 0.0f;
 
             if (mouseWorldPos.x > transform.position.x)
@@ -476,5 +528,72 @@ public class PlayerController : MonoBehaviour
             umbrellaController.SetUmbrellaState(UmbrellaController.UmbrellaState.Closed);
         }
     }
-}
 
+    private void BindInputActions()
+    {
+        inputActionsReady = false;
+
+        if (playerInput == null || playerInput.actions == null)
+        {
+            Debug.LogError("PlayerInput または InputActions が未設定です。", this);
+            return;
+        }
+
+        InputActionMap playerActionMap = playerInput.actions.FindActionMap(PlayerActionMapName, false);
+        if (playerActionMap == null)
+        {
+            Debug.LogError($"InputActionMap '{PlayerActionMapName}' が見つかりません。", this);
+            return;
+        }
+
+        bool allBound = true;
+        allBound &= TryBindRequiredAction(playerActionMap, InputActionNames.Move, ref moveAction);
+        allBound &= TryBindRequiredAction(playerActionMap, InputActionNames.Aim, ref aimAction);
+        allBound &= TryBindRequiredAction(playerActionMap, InputActionNames.Jump, ref jumpAction);
+        allBound &= TryBindRequiredAction(playerActionMap, InputActionNames.Attack, ref attackAction);
+        allBound &= TryBindRequiredAction(playerActionMap, InputActionNames.Dodge, ref dodgeAction);
+        allBound &= TryBindRequiredAction(playerActionMap, InputActionNames.UmbrellaToggle, ref umbrellaToggleAction);
+        allBound &= TryBindRequiredAction(playerActionMap, InputActionNames.RecoilJump, ref recoilJumpAction);
+
+        inputActionsReady = allBound;
+    }
+
+    private static bool IsPressedThisFrame(InputAction action)
+    {
+        return action != null && action.WasPressedThisFrame();
+    }
+
+    private static bool IsPressed(InputAction action)
+    {
+        return action != null && action.IsPressed();
+    }
+
+    private bool TryGetAimScreenPosition(out Vector2 position)
+    {
+        if (aimAction != null)
+        {
+            position = aimAction.ReadValue<Vector2>();
+            return true;
+        }
+
+        position = Vector2.zero;
+        return false;
+    }
+
+    private bool TryBindRequiredAction(InputActionMap actionMap, string actionName, ref InputAction targetAction)
+    {
+        targetAction = actionMap.FindAction(actionName, false);
+        if (targetAction == null)
+        {
+            Debug.LogError($"Action '{actionName}' が見つかりません。", this);
+            return false;
+        }
+
+        if (!targetAction.enabled)
+        {
+            targetAction.Enable();
+        }
+
+        return true;
+    }
+}
