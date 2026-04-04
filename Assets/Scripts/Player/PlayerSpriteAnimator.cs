@@ -1,14 +1,15 @@
-using Player;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 using UnityEngine.Serialization;
 
-namespace Metroidvania.Player
+namespace Player
 {
     /// <summary>
     /// Sprite based player visual controller.
     /// Animator mode only.
     /// </summary>
     [DisallowMultipleComponent]
+    [MovedFrom("Metroidvania.Player")]
     public class PlayerSpriteAnimator : MonoBehaviour
     {
         [Header("Controller")]

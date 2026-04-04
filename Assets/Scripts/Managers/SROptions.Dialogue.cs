@@ -38,7 +38,7 @@ public partial class SROptions
         public void PlayBubbleDialogue()
         {
             var manager = Object.FindFirstObjectByType<Metroidvania.Managers.DialogueManager>();
-            var player = Object.FindFirstObjectByType<Metroidvania.Player.PlayerPlatformerMockController>();
+            var player = Object.FindFirstObjectByType<global::PlayerController>();
 
             if (manager != null)
             {

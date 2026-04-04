@@ -10216,7 +10216,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e1791e8c2e8520a499cbfc0ca0803d32, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Metroidvania.Player.PlayerSpriteAnimator
+  m_EditorClassIdentifier: Assembly-CSharp::Player.PlayerSpriteAnimator
   mockController: {fileID: 446824765}
   statsController: {fileID: 0}
   syncFacingFromController: 1
