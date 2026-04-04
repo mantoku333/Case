@@ -17,6 +17,6 @@ MonoBehaviour:
   fallSpeed: 10
   jumpForce: 8
   attackPerSecond: 4
-  gunRecoilForce: 1.5
+  gunRecoilForce: 10
   reloadSeconds: 1.2
   maxHealth: 3
