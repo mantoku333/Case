@@ -44,7 +44,97 @@ namespace Player
         public float ParryDuration => parryDuration;
         public float ParryFlashDuration => parryFlashDuration;
         public int MaxHealth => maxHealth;
+
+        public void SetMoveSpeed(float value)
+        {
+            moveSpeed = value;
+            ClampValues();
+        }
+
+        public void SetGlideMoveSpeed(float value)
+        {
+            glideMoveSpeed = value;
+            ClampValues();
+        }
+
+        public void SetFallSpeed(float value)
+        {
+            fallSpeed = value;
+            ClampValues();
+        }
+
+        public void SetJumpForce(float value)
+        {
+            jumpForce = value;
+            ClampValues();
+        }
+
+        public void SetDodgeDistance(float value)
+        {
+            dodgeDistance = value;
+            ClampValues();
+        }
+
+        public void SetDodgeDuration(float value)
+        {
+            dodgeDuration = value;
+            ClampValues();
+        }
+
+        public void SetAttackPerSecond(float value)
+        {
+            attackPerSecond = value;
+            ClampValues();
+        }
+
+        public void SetUmbrellaAttackDuration(float value)
+        {
+            umbrellaAttackDuration = value;
+            ClampValues();
+        }
+
+        public void SetGunRecoilForce(float value)
+        {
+            gunRecoilForce = value;
+            ClampValues();
+        }
+
+        public void SetGunRecoilDuration(float value)
+        {
+            gunRecoilDuration = value;
+            ClampValues();
+        }
+
+        public void SetReloadSeconds(float value)
+        {
+            reloadSeconds = value;
+            ClampValues();
+        }
+
+        public void SetParryDuration(float value)
+        {
+            parryDuration = value;
+            ClampValues();
+        }
+
+        public void SetParryFlashDuration(float value)
+        {
+            parryFlashDuration = value;
+            ClampValues();
+        }
+
+        public void SetMaxHealth(int value)
+        {
+            maxHealth = value;
+            ClampValues();
+        }
+
         private void OnValidate()
+        {
+            ClampValues();
+        }
+
+        private void ClampValues()
         {
             moveSpeed = Mathf.Max(0f, moveSpeed);
             glideMoveSpeed = Mathf.Max(0f, glideMoveSpeed);
