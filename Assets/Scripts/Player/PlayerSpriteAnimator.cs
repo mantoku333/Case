@@ -4,41 +4,26 @@ namespace Metroidvania.Player
 {
     /// <summary>
     /// Sprite based player visual controller.
-    /// Keeps Spine workflow untouched by living in a separate component.
+    /// Animator mode only.
     /// </summary>
     [DisallowMultipleComponent]
     public class PlayerSpriteAnimator : MonoBehaviour
     {
         [Header("Controller")]
-        [SerializeField] private PlayerPlatformerMockController mockController;
-        [SerializeField] private PlayerController statsController;
+        [SerializeField] private global::PlayerController statsController;
 
         [Header("Facing")]
         [SerializeField] private bool syncFacingFromController = true;
         [SerializeField] private bool autoCollectFlipRenderers = true;
         [SerializeField] private SpriteRenderer[] flipRenderers;
 
-        [Header("Animator Mode")]
-        [SerializeField] private bool useAnimator = true;
+        [Header("Animator")]
         [SerializeField] private Animator animator;
         [SerializeField] private int animatorLayer = 0;
         [SerializeField] private string idleStateName = "idle";
         [SerializeField] private string runStateName = "run";
         [SerializeField] private string jumpStateName = "jump";
         [SerializeField] private string dodgeStateName = "dodge";
-
-        [Header("Sprite Sequence Mode")]
-        [SerializeField] private SpriteRenderer targetRenderer;
-        [SerializeField] private Sprite[] idleSprites;
-        [SerializeField] private Sprite[] runSprites;
-        [SerializeField] private Sprite[] jumpSprites;
-        [SerializeField] private Sprite[] dodgeSprites;
-        [SerializeField, Min(1f)] private float idleFps = 8f;
-        [SerializeField, Min(1f)] private float runFps = 12f;
-        [SerializeField, Min(1f)] private float jumpFps = 8f;
-        [SerializeField, Min(1f)] private float dodgeFps = 16f;
-        [SerializeField] private bool loopJumpSprites = true;
-        [SerializeField] private bool loopDodgeSprites = false;
 
         private enum VisualState
         {
@@ -51,12 +36,8 @@ namespace Metroidvania.Player
         private static readonly SpriteRenderer[] EmptyRenderers = new SpriteRenderer[0];
 
         private VisualState _currentState = (VisualState)(-1);
-        private Sprite[] _activeSprites;
-        private float _activeFps;
-        private int _frameIndex;
-        private float _frameTimer;
         private bool _warnedNoController;
-        private bool _warnedNoRenderer;
+        private bool _warnedNoAnimator;
         private SpriteRenderer[] _resolvedFlipRenderers = EmptyRenderers;
 
         private void Awake()
@@ -67,8 +48,6 @@ namespace Metroidvania.Player
         private void OnEnable()
         {
             _currentState = (VisualState)(-1);
-            _frameIndex = 0;
-            _frameTimer = 0f;
         }
 
         private void Update()
@@ -84,6 +63,17 @@ namespace Metroidvania.Player
             }
             _warnedNoController = false;
 
+            if (!IsAnimatorReady())
+            {
+                if (!_warnedNoAnimator)
+                {
+                    Debug.LogWarning("PlayerSpriteAnimator: Animator is missing or invalid.", this);
+                    _warnedNoAnimator = true;
+                }
+                return;
+            }
+            _warnedNoAnimator = false;
+
             if (syncFacingFromController)
             {
                 ApplyFacing(isFacingRight);
@@ -94,23 +84,13 @@ namespace Metroidvania.Player
             {
                 SwitchState(nextState);
             }
-
-            if (!IsAnimatorModeActive())
-            {
-                TickSpriteSequence();
-            }
         }
 
         private void ResolveReferences()
         {
-            if (mockController == null)
-            {
-                mockController = GetComponentInParent<PlayerPlatformerMockController>();
-            }
-
             if (statsController == null)
             {
-                statsController = GetComponentInParent<PlayerController>();
+                statsController = GetComponentInParent<global::PlayerController>();
             }
 
             if (animator == null)
@@ -122,50 +102,39 @@ namespace Metroidvania.Player
                 }
             }
 
-            if (targetRenderer == null)
-            {
-                targetRenderer = GetComponent<SpriteRenderer>();
-                if (targetRenderer == null)
-                {
-                    targetRenderer = GetComponentInParent<SpriteRenderer>();
-                }
-            }
-
-            if (flipRenderers == null || flipRenderers.Length == 0)
-            {
-                if (autoCollectFlipRenderers && targetRenderer != null)
-                {
-                    _resolvedFlipRenderers = new[] { targetRenderer };
-                }
-                else
-                {
-                    _resolvedFlipRenderers = EmptyRenderers;
-                }
-            }
-            else
+            if (flipRenderers != null && flipRenderers.Length > 0)
             {
                 _resolvedFlipRenderers = flipRenderers;
+                return;
             }
+
+            if (!autoCollectFlipRenderers)
+            {
+                _resolvedFlipRenderers = EmptyRenderers;
+                return;
+            }
+
+            var childRenderers = GetComponentsInChildren<SpriteRenderer>(true);
+            if (childRenderers != null && childRenderers.Length > 0)
+            {
+                _resolvedFlipRenderers = childRenderers;
+                return;
+            }
+
+            var parentRenderers = GetComponentsInParent<SpriteRenderer>(true);
+            _resolvedFlipRenderers = parentRenderers != null && parentRenderers.Length > 0
+                ? parentRenderers
+                : EmptyRenderers;
         }
 
         private bool TryReadControllerState(out bool isGrounded, out bool isMoving, out bool isGliding, out bool isDodging, out bool isFacingRight)
         {
-            if (mockController != null)
-            {
-                isGrounded = mockController.IsGrounded;
-                isMoving = mockController.IsMoving;
-                isGliding = mockController.IsGliding;
-                isDodging = mockController.IsDodging;
-                isFacingRight = mockController.IsFacingRight;
-                return true;
-            }
-
             if (statsController != null)
             {
                 isGrounded = statsController.IsGrounded;
                 isMoving = statsController.IsMoving;
                 isGliding = statsController.IsGliding;
-                isDodging = false;
+                isDodging = statsController.IsDodging;
                 isFacingRight = statsController.IsFacingRight;
                 return true;
             }
@@ -217,10 +186,9 @@ namespace Metroidvania.Player
             }
         }
 
-        private bool IsAnimatorModeActive()
+        private bool IsAnimatorReady()
         {
-            return useAnimator &&
-                   animator != null &&
+            return animator != null &&
                    animatorLayer >= 0 &&
                    animator.runtimeAnimatorController != null;
         }
@@ -228,22 +196,12 @@ namespace Metroidvania.Player
         private void SwitchState(VisualState nextState)
         {
             _currentState = nextState;
-            _frameIndex = 0;
-            _frameTimer = 0f;
 
-            if (IsAnimatorModeActive())
+            var stateName = ResolveAnimatorStateName(nextState);
+            if (!string.IsNullOrEmpty(stateName))
             {
-                var stateName = ResolveAnimatorStateName(nextState);
-                if (!string.IsNullOrEmpty(stateName))
-                {
-                    animator.Play(stateName, animatorLayer, 0f);
-                }
-                return;
+                animator.Play(stateName, animatorLayer, 0f);
             }
-
-            _activeSprites = GetSprites(nextState);
-            _activeFps = GetFps(nextState);
-            ApplyCurrentSprite();
         }
 
         private string GetAnimatorStateName(VisualState state)
@@ -300,104 +258,6 @@ namespace Metroidvania.Player
             }
 
             return animator.HasState(animatorLayer, Animator.StringToHash(stateName));
-        }
-
-        private Sprite[] GetSprites(VisualState state)
-        {
-            switch (state)
-            {
-                case VisualState.Run:
-                    return runSprites;
-                case VisualState.Jump:
-                    return jumpSprites;
-                case VisualState.Dodge:
-                    return dodgeSprites;
-                default:
-                    return idleSprites;
-            }
-        }
-
-        private float GetFps(VisualState state)
-        {
-            switch (state)
-            {
-                case VisualState.Run:
-                    return runFps;
-                case VisualState.Jump:
-                    return jumpFps;
-                case VisualState.Dodge:
-                    return dodgeFps;
-                default:
-                    return idleFps;
-            }
-        }
-
-        private bool IsLoopState(VisualState state)
-        {
-            if (state == VisualState.Jump)
-            {
-                return loopJumpSprites;
-            }
-
-            if (state == VisualState.Dodge)
-            {
-                return loopDodgeSprites;
-            }
-
-            return true;
-        }
-
-        private void TickSpriteSequence()
-        {
-            if (targetRenderer == null)
-            {
-                if (!_warnedNoRenderer)
-                {
-                    Debug.LogWarning("PlayerSpriteAnimator: target SpriteRenderer is missing.", this);
-                    _warnedNoRenderer = true;
-                }
-                return;
-            }
-            _warnedNoRenderer = false;
-
-            if (_activeSprites == null || _activeSprites.Length == 0)
-            {
-                return;
-            }
-
-            if (_activeSprites.Length == 1 || _activeFps <= 0f)
-            {
-                ApplyCurrentSprite();
-                return;
-            }
-
-            _frameTimer += Time.deltaTime * _activeFps;
-            while (_frameTimer >= 1f)
-            {
-                _frameTimer -= 1f;
-
-                if (!IsLoopState(_currentState) && _frameIndex >= _activeSprites.Length - 1)
-                {
-                    _frameIndex = _activeSprites.Length - 1;
-                }
-                else
-                {
-                    _frameIndex = (_frameIndex + 1) % _activeSprites.Length;
-                }
-            }
-
-            ApplyCurrentSprite();
-        }
-
-        private void ApplyCurrentSprite()
-        {
-            if (targetRenderer == null || _activeSprites == null || _activeSprites.Length == 0)
-            {
-                return;
-            }
-
-            _frameIndex = Mathf.Clamp(_frameIndex, 0, _activeSprites.Length - 1);
-            targetRenderer.sprite = _activeSprites[_frameIndex];
         }
     }
 }

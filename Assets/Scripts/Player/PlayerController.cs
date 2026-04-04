@@ -29,14 +29,11 @@ public class PlayerController : MonoBehaviour
     [Header("プレイヤーステータス")]
     [SerializeField] private PlayerStatsData playerStatsData;
 
-    private Animator animator;
-    private bool wasGround;  //前フレームの接地状態を保存する変数
-    private bool wasGliding; //前フレームの滑空状態を保存する変数
-
     //--------------移動関連------------------
     private float moveInput;
     private bool jumpInput;
     private bool isGround;
+    private bool isFacingRight = true;
 
     //-------各種コンポーネント参照関連--------
     private GroundCheck groundCheck;                           //地面判定のスクリプト
@@ -56,6 +53,17 @@ public class PlayerController : MonoBehaviour
     private InputAction recoilJumpAction;
     private InputAction umbrellaToggleAction;
     private bool inputActionsReady;
+
+    //-------View向け状態公開--------
+    public bool IsGrounded => isGround;
+    public bool IsMoving => Mathf.Abs(moveInput) > 0.01f;
+    public bool IsGliding =>
+        umbrellaController != null &&
+        umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open &&
+        !isGround;
+    public bool IsFacingRight => isFacingRight;
+    public bool IsDodging => dodgeController != null && dodgeController.IsDodging();
+
     private void Awake()
     {
         rigidBody2d = GetComponent<Rigidbody2D>();
@@ -66,12 +74,6 @@ public class PlayerController : MonoBehaviour
             Debug.LogError("Rigidbody2Dが見つかっていません！");
         }
 
-        animator = GetComponent<Animator>();
-
-        if (animator == null)
-        {
-            Debug.LogError("Animatorが見つかっていません！");
-        }
     }
 
     private void OnEnable()
@@ -88,9 +90,6 @@ public class PlayerController : MonoBehaviour
     {
         FindComponents();
         ApplyStats();
-
-        wasGround = isGround;
-        wasGliding = false;
     }
 
     private void Update()
@@ -105,8 +104,7 @@ public class PlayerController : MonoBehaviour
         }
 
         GetInput();
-        Flip();
-        UpdateAnimation();
+        UpdateFacingDirection();
     }
 
     private void FixedUpdate()
@@ -398,9 +396,9 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// プレイヤーの向き処理の関数
+    /// View層が参照する向き状態を更新する関数
     /// </summary>
-    private void Flip()
+    private void UpdateFacingDirection()
     {
         if (umbrellaController == null)
         {
@@ -413,11 +411,11 @@ public class PlayerController : MonoBehaviour
         {
             if (moveInput > 0.0f)
             {
-                transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
+                isFacingRight = true;
             }
             else if (moveInput < 0.0f)
             {
-                transform.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
+                isFacingRight = false;
             }
 
             return;
@@ -441,11 +439,11 @@ public class PlayerController : MonoBehaviour
 
             if (mouseWorldPos.x > transform.position.x)
             {
-                transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
+                isFacingRight = true;
             }
             else
             {
-                transform.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
+                isFacingRight = false;
             }
 
             return;
@@ -453,65 +451,16 @@ public class PlayerController : MonoBehaviour
 
         if (moveInput > 0.0f)
         {
-            transform.localScale = new Vector3(1.0f, 1.0f, 1.0f);
+            isFacingRight = true;
         }
         else if (moveInput < 0.0f)
         {
-            transform.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
+            isFacingRight = false;
         }
     }
 
-    //--------------アニメーション関連------------------
-    private void UpdateAnimation()
-    {
-        if (animator == null)
-        {
-            return;
-        }
-
-        if (umbrellaController == null)
-        {
-            return;
-        }
-
-        bool isUmbrellaOpen = (umbrellaController.GetUmbrellaState() == UmbrellaController.UmbrellaState.Open);
-        bool isGliding = isUmbrellaOpen && !isGround;
-        bool isMoving = false;
-        bool isDodging = false;
-
-        if (Mathf.Abs(moveInput) > 0.01f)
-        {
-            isMoving = true;
-        }
-
-        if (dodgeController != null)
-        {
-            isDodging = dodgeController.IsDodging();
-        }
-
-        animator.SetBool("IsGround", isGround);
-        animator.SetBool("IsMove", isMoving);
-        animator.SetBool("IsGlide", isGliding);
-        animator.SetBool("IsDodge", isDodging);
-
-        bool hasLandedFromGlide = false;
-
-        if (!wasGround && isGround && wasGliding)
-        {
-            hasLandedFromGlide = true;
-        }
-
-        if (hasLandedFromGlide)
-        {
-            animator.ResetTrigger("LandTrigger");
-            animator.SetTrigger("LandTrigger");
-        }
-
-        wasGround = isGround;
-        wasGliding = isGliding;
-    }
-
-        public void OnLandAnimationEnd()
+    // 旧アニメイベントとの互換用コールバック
+    public void OnLandAnimationEnd()
     {
         if (umbrellaController == null)
         {

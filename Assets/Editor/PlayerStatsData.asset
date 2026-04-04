@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: PlayerStatsData
   m_EditorClassIdentifier: Assembly-CSharp::GameName.Player.PlayerStatsData
   moveSpeed: 5
-  glideMoveSpeed: 3.5
+  glideMoveSpeed: 10
   fallSpeed: 10
   jumpForce: 8
   attackPerSecond: 4
