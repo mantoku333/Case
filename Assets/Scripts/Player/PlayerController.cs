@@ -8,7 +8,7 @@ using UnityEngine;
 /// 入力を受け取り、それぞれの機能へ処理を振り分ける
 /// </summary>
 [RequireComponent(typeof(PlayerInput))]
-public class PlayerController : MonoBehaviour
+public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
 {
     private const string PlayerActionMapName = "Player";
 
@@ -33,6 +33,8 @@ public class PlayerController : MonoBehaviour
     private float moveInput;
     private bool jumpInput;
     private bool isGround;
+    private bool hasPreviousGroundState;
+    private bool previousGroundState;
     private bool isFacingRight = true;
 
     //-------各種コンポーネント参照関連--------
@@ -79,6 +81,7 @@ public class PlayerController : MonoBehaviour
     private void OnEnable()
     {
         BindInputActions();
+        hasPreviousGroundState = false;
     }
 
     private void OnDisable()
@@ -103,6 +106,7 @@ public class PlayerController : MonoBehaviour
             isGround = false;
         }
 
+        HandleGroundTransition();
         GetInput();
         UpdateFacingDirection();
     }
@@ -459,15 +463,26 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // 旧アニメイベントとの互換用コールバック
-    public void OnLandAnimationEnd()
+    private void HandleGroundTransition()
     {
-        if (umbrellaController == null)
+        if (!hasPreviousGroundState)
         {
+            previousGroundState = isGround;
+            hasPreviousGroundState = true;
             return;
         }
 
-        if (!isGround)
+        if (!previousGroundState && isGround)
+        {
+            CloseUmbrellaOnLanding();
+        }
+
+        previousGroundState = isGround;
+    }
+
+    private void CloseUmbrellaOnLanding()
+    {
+        if (umbrellaController == null)
         {
             return;
         }
@@ -476,6 +491,12 @@ public class PlayerController : MonoBehaviour
         {
             umbrellaController.SetUmbrellaState(UmbrellaController.UmbrellaState.Closed);
         }
+    }
+
+    // Legacy callback kept for old animation event wiring.
+    public void OnLandAnimationEnd()
+    {
+        // No-op: landing side effects are handled by logic-side ground transition.
     }
 
     private void BindInputActions()

@@ -1,4 +1,6 @@
+using Player;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Metroidvania.Player
 {
@@ -10,7 +12,8 @@ namespace Metroidvania.Player
     public class PlayerSpriteAnimator : MonoBehaviour
     {
         [Header("Controller")]
-        [SerializeField] private global::PlayerController statsController;
+        [FormerlySerializedAs("statsController")]
+        [SerializeField] private MonoBehaviour stateProviderSource;
 
         [Header("Facing")]
         [SerializeField] private bool syncFacingFromController = true;
@@ -38,8 +41,9 @@ namespace Metroidvania.Player
         private static readonly SpriteRenderer[] EmptyRenderers = new SpriteRenderer[0];
 
         private VisualState _currentState = (VisualState)(-1);
-        private bool _warnedNoController;
+        private bool _warnedNoStateProvider;
         private bool _warnedNoAnimator;
+        private IPlayerViewStateProvider _stateProvider;
         private SpriteRenderer[] _resolvedFlipRenderers = EmptyRenderers;
         private bool _landingLocked;
         private bool _hasPreviousGrounded;
@@ -62,16 +66,16 @@ namespace Metroidvania.Player
 
         private void Update()
         {
-            if (!TryReadControllerState(out var isGrounded, out var isMoving, out var isGliding, out var isDodging, out var isFacingRight))
+            if (!TryReadProviderState(out var isGrounded, out var isMoving, out var isGliding, out var isDodging, out var isFacingRight))
             {
-                if (!_warnedNoController)
+                if (!_warnedNoStateProvider)
                 {
-                    Debug.LogWarning("PlayerSpriteAnimator: no compatible player controller found.", this);
-                    _warnedNoController = true;
+                    Debug.LogWarning("PlayerSpriteAnimator: no compatible state provider found.", this);
+                    _warnedNoStateProvider = true;
                 }
                 return;
             }
-            _warnedNoController = false;
+            _warnedNoStateProvider = false;
 
             if (!IsAnimatorReady())
             {
@@ -104,9 +108,19 @@ namespace Metroidvania.Player
 
         private void ResolveReferences()
         {
-            if (statsController == null)
+            if (stateProviderSource == null)
             {
-                statsController = GetComponentInParent<global::PlayerController>();
+                var providerInParent = GetComponentInParent<IPlayerViewStateProvider>();
+                if (providerInParent is MonoBehaviour monoProvider)
+                {
+                    stateProviderSource = monoProvider;
+                }
+            }
+
+            _stateProvider = stateProviderSource as IPlayerViewStateProvider;
+            if (_stateProvider == null && stateProviderSource != null)
+            {
+                Debug.LogWarning("PlayerSpriteAnimator: assigned state provider does not implement IPlayerViewStateProvider.", this);
             }
 
             if (animator == null)
@@ -143,15 +157,15 @@ namespace Metroidvania.Player
                 : EmptyRenderers;
         }
 
-        private bool TryReadControllerState(out bool isGrounded, out bool isMoving, out bool isGliding, out bool isDodging, out bool isFacingRight)
+        private bool TryReadProviderState(out bool isGrounded, out bool isMoving, out bool isGliding, out bool isDodging, out bool isFacingRight)
         {
-            if (statsController != null)
+            if (_stateProvider != null)
             {
-                isGrounded = statsController.IsGrounded;
-                isMoving = statsController.IsMoving;
-                isGliding = statsController.IsGliding;
-                isDodging = statsController.IsDodging;
-                isFacingRight = statsController.IsFacingRight;
+                isGrounded = _stateProvider.IsGrounded;
+                isMoving = _stateProvider.IsMoving;
+                isGliding = _stateProvider.IsGliding;
+                isDodging = _stateProvider.IsDodging;
+                isFacingRight = _stateProvider.IsFacingRight;
                 return true;
             }
 
@@ -277,18 +291,13 @@ namespace Metroidvania.Player
         }
 
         /// <summary>
-        /// land.anim の AnimationEvent 受け口。
-        /// SpriteView 側でイベントを受け、必要な後処理を Controller に中継する。
+        /// Receives AnimationEvent from land.anim.
+        /// Kept for compatibility with clip event wiring.
         /// </summary>
         public void OnLandAnimationEnd()
         {
             _landingLocked = false;
             _activeLandStateName = null;
-
-            if (statsController != null)
-            {
-                statsController.OnLandAnimationEnd();
-            }
         }
 
         private string GetAnimatorStateName(VisualState state)

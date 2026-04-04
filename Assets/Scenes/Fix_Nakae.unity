@@ -1662,10 +1662,10 @@ GameObject:
   - component: {fileID: 775024340}
   - component: {fileID: 775024339}
   - component: {fileID: 775024344}
-  - component: {fileID: 775024345}
   - component: {fileID: 775024346}
+  - component: {fileID: 775024347}
   m_Layer: 0
-  m_Name: TestPlayer
+  m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1849,28 +1849,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DodgeController
   dodgeDistance: 5
   dodgeDuration: 0.3
---- !u!95 &775024345
-Animator:
-  serializedVersion: 7
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 775024338}
-  m_Enabled: 0
-  m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: ad97e517cccf58048a68b40ee5747dca, type: 2}
-  m_CullingMode: 0
-  m_UpdateMode: 0
-  m_ApplyRootMotion: 0
-  m_LinearVelocityBlending: 0
-  m_StabilizeFeet: 0
-  m_AnimatePhysics: 0
-  m_WarningMessage: 
-  m_HasTransformHierarchy: 1
-  m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorStateOnDisable: 0
-  m_WriteDefaultValuesOnDisable: 0
 --- !u!82 &775024346
 AudioSource:
   m_ObjectHideFlags: 0
@@ -1965,9 +1943,39 @@ AudioSource:
       weightedMode: 0
       inWeight: 0.33333334
       outWeight: 0.33333334
-  m_PreInfinity: 2
-  m_PostInfinity: 2
-  m_RotationOrder: 4
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &775024347
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 775024338}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
+  m_Actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+  m_NotificationBehavior: 0
+  m_UIInputModule: {fileID: 0}
+  m_DeviceLostEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_DeviceRegainedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ControlsChangedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ActionEvents: []
+  m_NeverAutoSwitchControlSchemes: 0
+  m_DefaultControlScheme: 
+  m_DefaultActionMap: 
+  m_SplitScreenIndex: -1
+  m_Camera: {fileID: 0}
 --- !u!1 &775024500
 GameObject:
   m_ObjectHideFlags: 0
@@ -2071,7 +2079,7 @@ Animator:
   m_GameObject: {fileID: 775024500}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: ad97e517cccf58048a68b40ee5747dca, type: 2}
+  m_Controller: {fileID: 9100000, guid: 10eedf3989b8888489342992679ff1b2, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -2095,7 +2103,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1791e8c2e8520a499cbfc0ca0803d32, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Metroidvania.Player.PlayerSpriteAnimator
-  statsController: {fileID: 775024339}
+  stateProviderSource: {fileID: 775024339}
   syncFacingFromController: 1
   autoCollectFlipRenderers: 1
   flipRenderers: []
@@ -2104,6 +2112,7 @@ MonoBehaviour:
   idleStateName: idle
   runStateName: run
   jumpStateName: jump
+  landStateName: land
   dodgeStateName: dodge
 --- !u!1 &795940352
 GameObject:
