@@ -135,8 +135,9 @@ public class GunController : MonoBehaviour
 
         if (rigidBody2d == null){ return; }
 
-        // 一度上方向速度をリセットしてからインパルスを与えると、挙動が安定しやすい
+        // リコイルジャンプ中は移動入力と混ざらないように速度をリセットしてからインパルスを与える
         Vector2 velocity = rigidBody2d.linearVelocity;
+        velocity.x = 0.0f;
         velocity.y = 0.0f;
         rigidBody2d.linearVelocity = velocity;
         rigidBody2d.AddForce(Vector2.up * airRecoilPower, ForceMode2D.Impulse);

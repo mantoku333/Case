@@ -4,9 +4,12 @@ using UnityEngine.InputSystem;
 using UnityEngine;
 
 /// <summary>
-/// プレイヤーの基本操作を管理するクラス
-/// 左右移動、ジャンプ、向き制御、銃反動、傘の開け閉め、敵への攻撃
-/// 入力を受け取り、それぞれの機能へ処理を振り分ける
+/// プレイヤー操作のオーケストレーター。
+/// 入力取得、状態更新、各サブコンポーネントへの命令発行を担う。
+/// 
+/// 設計意図:
+/// - 物理値の最終決定はこのクラスで行い、機能別処理は各Controllerへ委譲する
+/// - Viewは IPlayerViewStateProvider 経由で状態参照し、操作ロジックと分離する
 /// </summary>
 [RequireComponent(typeof(PlayerInput))]
 public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
@@ -25,7 +28,12 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
     }
 
     private Rigidbody2D rigidBody2d;
+    private Collider2D playerCollider;
     private PlayerInput playerInput;
+    private PhysicsMaterial2D runtimeNoFrictionMaterial;
+
+    [Header("物理設定")]
+    [SerializeField] private bool applyNoFrictionMaterial = true;
 
     [Header("プレイヤーステータス")]
     [SerializeField, Required, Expandable] private PlayerStatsData playerStatsData;
@@ -58,6 +66,8 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
     private bool inputActionsReady;
 
     //-------View向け状態公開--------
+    // Animator/View が参照する読み取り専用状態。
+    // ロジック追加時は「計算済みの状態」をここに公開し、View側で判定させない方針。
     public bool IsGrounded => isGround;
     public bool IsMoving => Mathf.Abs(moveInput) > 0.01f;
     public bool IsGliding =>
@@ -70,13 +80,18 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
     private void Awake()
     {
         rigidBody2d = GetComponent<Rigidbody2D>();
+        playerCollider = GetComponent<Collider2D>();
         playerInput = GetComponent<PlayerInput>();
 
         if (rigidBody2d == null)
         {
-            Debug.LogError("Rigidbody2Dが見つかっていません！");
+            Debug.LogError("Rigidbody2Dが見つかっていません");
         }
 
+        if (applyNoFrictionMaterial && playerCollider != null)
+        {
+            ApplyNoFrictionMaterial();
+        }
     }
 
     private void OnEnable()
@@ -96,12 +111,17 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
         ApplyStats();
     }
 
+    // フレーム入力の取得と見た目向きの更新のみを担当。
+    // 物理値の更新は FixedUpdate 側で行う。
     private void Update()
     {
         GetInput();
         UpdateFacingDirection();
     }
 
+    // 物理更新順は依存関係を持つため固定:
+    // 1) 接地状態更新 -> 2) 接地遷移処理 -> 3) 移動 -> 4) ジャンプ
+    // この順序を変えると入力遅延やジャンプ取りこぼしの原因になる。
     private void FixedUpdate()
     {
         RefreshGroundState();
@@ -139,46 +159,48 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
         groundCheck = GetComponentInChildren<GroundCheck>();
         if (groundCheck == null)
         {
-            Debug.LogError("GroundCheckが見つかっていません！");
+            Debug.LogError("GroundCheckが見つかっていません");
         }
 
         gunController = GetComponentInChildren<GunController>();
         if (gunController == null)
         {
-            Debug.LogError("GunControllerが見つかっていません！");
+            Debug.LogError("GunControllerが見つかっていません");
         }
 
         umbrellaController = GetComponentInChildren<UmbrellaController>();
         if (umbrellaController == null)
         {
-            Debug.LogError("UmbrellaControllerが見つかっていません！");
+            Debug.LogError("UmbrellaControllerが見つかっていません");
         }
 
         umbrellaAttackController = GetComponentInChildren<UmbrellaAttackController>();
         if (umbrellaAttackController == null)
         {
-            Debug.LogError("UmbrellaAttackControllerが見つかっていません！");
+            Debug.LogError("UmbrellaAttackControllerが見つかっていません");
         }
 
         umbrellaParryController = GetComponentInChildren<UmbrellaParryController>();
         if (umbrellaParryController == null)
         {
-            Debug.LogError("UmbrellaParryControllerが見つかっていません！");
+            Debug.LogError("UmbrellaParryControllerが見つかっていません");
         }
 
         parryHitbox = GetComponentInChildren<ParryHitbox>();
         if (parryHitbox == null)
         {
-            Debug.LogError("ParryHitboxが見つかっていません！");
+            Debug.LogError("ParryHitboxが見つかっていません");
         }
 
         dodgeController = GetComponent<DodgeController>();
         if (dodgeController == null)
         {
-            Debug.LogError("DodgeControllerが見つかっていません！");
+            Debug.LogError("DodgeControllerが見つかっていません");
         }
     }
 
+    // ScriptableObject(PlayerStatsData) の値を各機能コンポーネントへ反映する窓口。
+    // パラメータ追加時は「Data -> このメソッド -> 各Controller」の順で配線する。
     private void ApplyStats()
     {
         if (playerStatsData == null)
@@ -219,6 +241,11 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
         }
     }
 
+    // 入力受付専用。
+    // ここでは「何をするか」を決めるだけで、実際の物理移動量の確定は Move/Jump に任せる。
+    // 攻撃仕様:
+    // - 空中攻撃(銃)は滑空中のみ
+    // - 地上攻撃は傘攻撃
     private void GetInput()
     {
         if (umbrellaController == null){ return; }
@@ -299,7 +326,7 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
 
         if (IsPressedThisFrame(attackAction))
         {
-            if (!isGround)
+            if (!isGround && isGliding)
             {
                 if (TryGetAimScreenPosition(out var pointerPos))
                 {
@@ -318,7 +345,7 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
             }
             else
             {
-                if (!isGliding && umbrellaAttackController != null)
+                if (isGround && !isGliding && umbrellaAttackController != null)
                 {
                     umbrellaAttackController.Attack();
                 }
@@ -340,11 +367,17 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
     }
 
     /// <summary>
-    /// プレイヤーの左右移動処理の関数
+    /// プレイヤーの左右移動処理。
     /// </summary>
+    /// <remarks>
+    /// 反動/回避のような外部インパルス挙動を優先するため、該当状態ではここでの速度上書きを止める。
+    /// 「入力由来の速度」と「特殊アクション由来の速度」の競合回避が目的。
+    /// </remarks>
     private void Move()
     {
         if(dodgeController != null && dodgeController.IsDodging()){ return; }
+
+        if (gunController != null && gunController.GetRecoiling()) { return; }
 
         if (rigidBody2d == null) { return; }
 
@@ -383,8 +416,12 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
     }
 
     /// <summary>
-    /// プレイヤーのジャンプ処理の関数
+    /// ジャンプ処理。
     /// </summary>
+    /// <remarks>
+    /// GetInput で立てた jumpInput フラグを消費する単方向フロー。
+    /// 入力読み取りと物理反映を分離し、判定競合を減らしている。
+    /// </remarks>
     private void Jump()
     {
         if (dodgeController != null && dodgeController.IsDodging())
@@ -419,8 +456,14 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
     }
 
     /// <summary>
-    /// View層が参照する向き状態を更新する関数
+    /// View層が参照する向き状態の更新。
     /// </summary>
+    /// <remarks>
+    /// ルール:
+    /// - 地上: 移動入力で向き決定
+    /// - 滑空中: 移動入力優先。入力が無いときのみ Aim 方向で決定
+    /// - 非滑空空中: 移動入力で決定
+    /// </remarks>
     private void UpdateFacingDirection()
     {
         if (umbrellaController == null)
@@ -446,6 +489,18 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
 
         if (isGliding)
         {
+            if (moveInput > 0.01f)
+            {
+                isFacingRight = true;
+                return;
+            }
+
+            if (moveInput < -0.01f)
+            {
+                isFacingRight = false;
+                return;
+            }
+
             if (!TryGetAimScreenPosition(out var pointerPos))
             {
                 return;
@@ -482,6 +537,8 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
         }
     }
 
+    // 接地遷移(空中 -> 接地)の副作用を集約する場所。
+    // 着地時の演出/状態リセットを追加する場合はここに寄せる。
     private void HandleGroundTransition()
     {
         if (!hasPreviousGroundState)
@@ -518,6 +575,8 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
         // No-op: landing side effects are handled by logic-side ground transition.
     }
 
+    // InputAction のバインドを1か所に集約。
+    // Action名は InputActionNames を唯一の正とし、Asset側名称と必ず一致させる。
     private void BindInputActions()
     {
         inputActionsReady = false;
@@ -569,6 +628,8 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
         return false;
     }
 
+    // 必須Actionの取得+有効化ヘルパー。
+    // ここで失敗したActionがある場合は入力系をReadyにしない設計。
     private bool TryBindRequiredAction(InputActionMap actionMap, string actionName, ref InputAction targetAction)
     {
         targetAction = actionMap.FindAction(actionName, false);
@@ -584,5 +645,33 @@ public class PlayerController : MonoBehaviour, IPlayerViewStateProvider
         }
 
         return true;
+    }
+
+    // 壁張り付き対策: プレイヤー本体コライダーへ摩擦ゼロマテリアルをランタイムで適用する。
+    // 既存マテリアルがある場合は、名前を引き継いだRuntime複製を作成して差し替える。
+    private void ApplyNoFrictionMaterial()
+    {
+        if (playerCollider == null)
+        {
+            return;
+        }
+
+        if (playerCollider.sharedMaterial != null)
+        {
+            runtimeNoFrictionMaterial = new PhysicsMaterial2D($"{playerCollider.sharedMaterial.name}_RuntimeNoFriction")
+            {
+                friction = 0f,
+                bounciness = 0f
+            };
+            playerCollider.sharedMaterial = runtimeNoFrictionMaterial;
+            return;
+        }
+
+        runtimeNoFrictionMaterial = new PhysicsMaterial2D("Runtime_Player_NoFriction")
+        {
+            friction = 0f,
+            bounciness = 0f
+        };
+        playerCollider.sharedMaterial = runtimeNoFrictionMaterial;
     }
 }
