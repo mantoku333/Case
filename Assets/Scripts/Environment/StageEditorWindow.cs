@@ -1,7 +1,9 @@
 ﻿using Player;
+using System;
 using UnityEditor;
-using UnityEditor.EditorTools;
-using UnityEditor.Tilemaps;
+//using UnityEditor.EditorTools;
+//using UnityEditor.Tilemaps;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -182,10 +184,16 @@ namespace EditorTools
             if (cachedStatsEditor != null)
             {
                 cachedStatsEditor.OnInspectorGUI();
+            }
 
-                if (GUI.changed)
+            if (currentPlacementType == PlacementType.Player)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Player Utility", EditorStyles.boldLabel);
+
+                if (GUILayout.Button("StartPointへリセット"))
                 {
-                    EditorUtility.SetDirty(playerStatsData);
+                    ResetPlayerToStartPoint();
                 }
             }
         }
@@ -317,24 +325,6 @@ namespace EditorTools
             Undo.RegisterCreatedObjectUndo(instance, $"Place {prefab.name}");
             instance.transform.position = placePosition;
             Selection.activeGameObject = instance;
-        }
-
-        /// <summary>
-        /// Tilemapのセルのタイルを削除
-        /// </summary>
-        private void EraseTile(Vector3 worldPosition)
-        {
-            if (targetStageTilemap == null)
-            {
-                Debug.LogWarning("Stage Tilemap が設定されていません");
-                return;
-            }
-
-            Vector3Int cell = targetStageTilemap.WorldToCell(worldPosition);
-
-            Undo.RecordObject(targetStageTilemap, "Erase Stage Tile");
-            targetStageTilemap.SetTile(cell, null);
-            EditorUtility.SetDirty(targetStageTilemap);
         }
 
         /// <summary>
@@ -704,7 +694,6 @@ namespace EditorTools
 
             Undo.RecordObject(targetStageTilemap, "Erase Stage Tile");
             targetStageTilemap.SetTile(cell, null);
-            EditorUtility.SetDirty(targetStageTilemap);
         }
 
         /// <summary>
@@ -770,6 +759,85 @@ namespace EditorTools
 
             // 最後に編集したセルを無効値に戻す
             lastDraggedCell = invalidCell;
+        }
+
+        /// <summary>
+        /// プレイヤーをStartPointへ移動し、残っている速度もリセットする
+        /// </summary>
+        private void ResetPlayerToStartPoint()
+        {
+            PlayerController player = FindFirstObjectByType<PlayerController>();
+            if (player == null)
+            {
+                Debug.LogWarning("PlayerController を持つオブジェクトが見つかりません。");
+                return;
+            }
+
+            GameObject startPoint = GameObject.Find("StartPoint");
+            if (startPoint == null)
+            {
+                Debug.LogWarning("Hierarchy に StartPoint が見つかりません。");
+                return;
+            }
+
+            Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
+
+            Vector3 targetPosition = startPoint.transform.position;
+            targetPosition.z = player.transform.position.z;
+
+            Undo.RecordObject(player.transform, "Reset Player To StartPoint");
+            if (rb != null)
+            {
+                Undo.RecordObject(rb, "Reset Player Velocity");
+            }
+
+            if (rb != null)
+            {
+                // まず速度を止める
+                rb.linearVelocity = Vector2.zero;
+                rb.angularVelocity = 0f;
+
+                // 見た目側を即座に移動
+                player.transform.position = targetPosition;
+
+                // Transform変更を2D物理へ同期
+                Physics2D.SyncTransforms();
+
+                // 物理側の位置も合わせる
+                rb.position = new Vector2(targetPosition.x, targetPosition.y);
+
+                // 念のためもう一度速度を止める
+                rb.linearVelocity = Vector2.zero;
+                rb.angularVelocity = 0f;
+                rb.Sleep();
+            }
+            else
+            {
+                player.transform.position = targetPosition;
+            }
+
+            Selection.activeGameObject = player.gameObject;
+
+            // GameView / PlayerLoop の更新を促す
+            EditorApplication.QueuePlayerLoopUpdate();
+            Repaint();
+            SceneView.RepaintAll();
+            FocusGameView();
+        }
+
+        /// <summary>
+        /// フォーカスをGameビューに維持する
+        /// </summary>
+        private static void FocusGameView()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                Type gameViewType = Type.GetType("UnityEditor.GameView, UnityEditor");
+                if (gameViewType != null)
+                {
+                    EditorWindow.FocusWindowIfItsOpen(gameViewType);
+                }
+            };
         }
 
         //Tile Paletteを直で使いたくなった時用に残す
