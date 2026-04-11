@@ -34,7 +34,24 @@ namespace EditorTools
             Select
         }
 
+        private enum StagePaintTileType
+        {
+            Block,
+            Slope
+        }
+
+        // 直角があるコーナーを指定することで、4方向の斜面を扱う
+        private enum SlopeCorner
+        {
+            BottomLeft,
+            BottomRight,
+            TopLeft,
+            TopRight
+        }
+
         [SerializeField] private TileEditMode tileEditMode = TileEditMode.Brush;
+        [SerializeField] private StagePaintTileType stagePaintTileType = StagePaintTileType.Block;
+        [SerializeField] private SlopeCorner slopeCorner = SlopeCorner.BottomLeft;
 
         private bool isTileDragging;
         private Vector3Int dragStartCell;
@@ -60,6 +77,7 @@ namespace EditorTools
         {
             public Vector3Int offset;
             public TileBase tile;
+            public Matrix4x4 transform;
         }
 
         private List<ClipboardTile> clipboardTiles = new List<ClipboardTile>();
@@ -200,6 +218,20 @@ namespace EditorTools
             if (currentPlacementType == PlacementType.Stage)
             {
                 EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Stage Tile Type", EditorStyles.boldLabel);
+                stagePaintTileType = (StagePaintTileType)GUILayout.Toolbar(
+                    (int)stagePaintTileType,
+                    new[] { "通常ブロック", "斜面" });
+
+                if (stagePaintTileType == StagePaintTileType.Slope)
+                {
+                    EditorGUILayout.LabelField("Slope Direction", EditorStyles.boldLabel);
+                    slopeCorner = (SlopeCorner)GUILayout.Toolbar(
+                        (int)slopeCorner,
+                        new[] { "左下", "右下", "左上", "右上" });
+                }
+
+                EditorGUILayout.Space();
                 EditorGUILayout.LabelField("Tile Edit Mode", EditorStyles.boldLabel);
                 tileEditMode = (TileEditMode)GUILayout.Toolbar(
                     (int)tileEditMode,
@@ -233,9 +265,10 @@ namespace EditorTools
             }
 
             if (currentPlacementType == PlacementType.Stage &&
-                (palette == null || palette.StageTile == null))
+                !HasValidStagePaintTile())
             {
-                EditorGUILayout.HelpBox("Stage モードを使うには Palette に Stage Tile の設定が必要です", MessageType.Warning);
+                string requiredTileName = stagePaintTileType == StagePaintTileType.Block ? "Stage Tile" : "Slope Tile";
+                EditorGUILayout.HelpBox($"Stage モードを使うには Palette に {requiredTileName} の設定が必要です", MessageType.Warning);
             }
 
             if (cachedStatsEditor == null)
@@ -283,13 +316,18 @@ namespace EditorTools
             // SceneView 上にGUIを描画開始
             Handles.BeginGUI();
             //Rect内で描画の範囲を指定  (左上x座標、左上y座標、幅の大きさ、縦の大きさ)
-            GUILayout.BeginArea(new Rect(30f, 30f, 300f, 100f), GUI.skin.window);
+            GUILayout.BeginArea(new Rect(30f, 30f, 320f, 130f), GUI.skin.window);
             GUILayout.Label($"配置モード: {currentPlacementType}");
 
             // Stage / Erase の場合は、タイル編集用の説明を表示
             if (currentPlacementType == PlacementType.Stage || currentPlacementType == PlacementType.Erase)
             {
                 GUILayout.Label($"編集方式: {tileEditMode}");
+
+                if (currentPlacementType == PlacementType.Stage)
+                {
+                    GUILayout.Label($"配置タイル: {GetStagePaintTileLabel()}");
+                }
 
                 //編集方式ごとの操作説明を表示
                 if (currentPlacementType == PlacementType.Stage && tileEditMode == TileEditMode.Select)
@@ -469,7 +507,6 @@ namespace EditorTools
             Undo.RecordObject(cameraData, "Adjust Camera Data");
             cameraData.SetFollowOffsetY(followOffsetY);
             cameraData.SetOrthographicSize(orthographicSize);
-            EditorUtility.SetDirty(cameraData);
             ApplyDirectFollowCamPreview();
             SceneView.RepaintAll();
         }
@@ -505,7 +542,6 @@ namespace EditorTools
                         Undo.RecordObject(follow, "Sync CN_DirectFollowCam Offset");
                         offset.y = cameraData.FollowOffsetY;
                         follow.FollowOffset = offset;
-                        EditorUtility.SetDirty(follow);
                     }
                 }
 
@@ -517,12 +553,6 @@ namespace EditorTools
                     Undo.RecordObject(camera, "Sync CN_DirectFollowCam Zoom");
                     lens.OrthographicSize = cameraData.OrthographicSize;
                     camera.Lens = lens;
-                    EditorUtility.SetDirty(camera);
-                }
-
-                if (offsetChanged || zoomChanged)
-                {
-                    EditorSceneManager.MarkSceneDirty(camera.gameObject.scene);
                 }
             }
         }
@@ -619,6 +649,8 @@ namespace EditorTools
             CancelTileDrag();
             ClearTileSelection();
             currentPlacementType = PlacementType.None;
+            stagePaintTileType = StagePaintTileType.Block;
+            slopeCorner = SlopeCorner.BottomLeft;
 
             palette = null;
             playerStatsData = null;
@@ -653,8 +685,7 @@ namespace EditorTools
 
             // Stage配置時は、配置する Tile が設定されていないと処理できないのでreturn
             if (currentPlacementType == PlacementType.Stage &&
-                (palette == null || palette.StageTile == null) &&
-                 tileEditMode != TileEditMode.Select)
+                !HasValidStagePaintTile())
             {
                 return;
             }
@@ -663,6 +694,12 @@ namespace EditorTools
             if (tileEditMode == TileEditMode.Rectangle && isTileDragging)
             {
                 DrawRectanglePreview(dragStartCell, dragCurrentCell);
+            }
+
+            if (currentPlacementType == PlacementType.Stage &&
+                TryGetCellFromMouse(e.mousePosition, out Vector3Int hoverCell))
+            {
+                DrawCurrentStagePaintPreview(hoverCell);
             }
 
             // 左クリック以外は、この編集処理の対象外
@@ -780,6 +817,131 @@ namespace EditorTools
             return true;
         }
 
+        private struct StagePaintData
+        {
+            public TileBase tile;
+            public Matrix4x4 transform;
+        }
+
+        private bool HasValidStagePaintTile()
+        {
+            if (palette == null)
+            {
+                return false;
+            }
+
+            return stagePaintTileType == StagePaintTileType.Block
+                ? palette.StageTile != null
+                : palette.SlopeTile != null;
+        }
+
+        private bool TryGetStagePaintData(out StagePaintData paintData)
+        {
+            paintData = default;
+
+            if (palette == null)
+            {
+                return false;
+            }
+
+            if (stagePaintTileType == StagePaintTileType.Block)
+            {
+                if (palette.StageTile == null)
+                {
+                    return false;
+                }
+
+                paintData.tile = palette.StageTile;
+                paintData.transform = Matrix4x4.identity;
+                return true;
+            }
+
+            if (palette.SlopeTile == null)
+            {
+                return false;
+            }
+
+            paintData.tile = palette.SlopeTile;
+            paintData.transform = GetSlopeTransformMatrix(slopeCorner);
+            return true;
+        }
+
+        // SlopeTile は「左下が直角」の向きを基準にし、回転で向きを切り替える
+        private static Matrix4x4 GetSlopeTransformMatrix(SlopeCorner corner)
+        {
+            switch (corner)
+            {
+                case SlopeCorner.BottomLeft:
+                    return Matrix4x4.identity;
+                case SlopeCorner.BottomRight:
+                    return Matrix4x4.Rotate(Quaternion.Euler(0f, 0f, 90f));
+                case SlopeCorner.TopLeft:
+                    return Matrix4x4.Rotate(Quaternion.Euler(0f, 0f, -90f));
+                case SlopeCorner.TopRight:
+                    return Matrix4x4.Rotate(Quaternion.Euler(0f, 0f, 180f));
+                default:
+                    return Matrix4x4.identity;
+            }
+        }
+
+        private void SetTileWithTransform(Vector3Int cell, TileBase tile, Matrix4x4 transform)
+        {
+            if (targetStageTilemap == null)
+            {
+                return;
+            }
+
+            targetStageTilemap.SetTile(cell, tile);
+            if (tile == null)
+            {
+                return;
+            }
+
+            targetStageTilemap.RemoveTileFlags(cell, TileFlags.LockTransform);
+            targetStageTilemap.SetTransformMatrix(cell, transform);
+        }
+
+        private string GetStagePaintTileLabel()
+        {
+            if (stagePaintTileType == StagePaintTileType.Block)
+            {
+                return "通常ブロック";
+            }
+
+            return $"斜面({GetSlopeCornerLabel(slopeCorner)})";
+        }
+
+        private static string GetSlopeCornerLabel(SlopeCorner corner)
+        {
+            switch (corner)
+            {
+                case SlopeCorner.BottomLeft:
+                    return "左下";
+                case SlopeCorner.BottomRight:
+                    return "右下";
+                case SlopeCorner.TopLeft:
+                    return "左上";
+                case SlopeCorner.TopRight:
+                    return "右上";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private void DrawCurrentStagePaintPreview(Vector3Int cell)
+        {
+            Color fillColor = new Color(0f, 1f, 0f, 0.18f);
+            Color outlineColor = new Color(0f, 1f, 0f, 0.95f);
+
+            if (stagePaintTileType == StagePaintTileType.Block)
+            {
+                DrawFilledCellPreview(cell, fillColor, outlineColor);
+                return;
+            }
+
+            DrawSlopeCellPreview(cell, slopeCorner, fillColor, outlineColor);
+        }
+
         /// <summary>
         /// 指定範囲のタイルをまとめて配置または削除
         /// </summary>
@@ -810,10 +972,13 @@ namespace EditorTools
                 return;
             }
 
+            StagePaintData paintData = default;
+
             if (currentPlacementType == PlacementType.Stage &&
-                (palette == null || palette.StageTile == null))
+                !TryGetStagePaintData(out paintData))
             {
-                Debug.LogWarning("Palette に Stage Tile が設定されていません");
+                string requiredTileName = stagePaintTileType == StagePaintTileType.Block ? "Stage Tile" : "Slope Tile";
+                Debug.LogWarning($"Palette に {requiredTileName} が設定されていません");
                 return;
             }
 
@@ -828,15 +993,21 @@ namespace EditorTools
                 targetStageTilemap,
                 currentPlacementType == PlacementType.Stage ? "Paint Stage Tiles" : "Erase Stage Tiles");
 
-            // Stage なら配置用 Tile、Erase なら null を使う
-            TileBase tile = currentPlacementType == PlacementType.Stage ? palette.StageTile : null;
-
             // 範囲内の全セルに対してタイルを設定する
             for (int y = minY; y <= maxY; y++)
             {
                 for (int x = minX; x <= maxX; x++)
                 {
-                    targetStageTilemap.SetTile(new Vector3Int(x, y, 0), tile);
+                    Vector3Int cell = new Vector3Int(x, y, 0);
+
+                    if (currentPlacementType == PlacementType.Stage)
+                    {
+                        SetTileWithTransform(cell, paintData.tile, paintData.transform);
+                    }
+                    else
+                    {
+                        targetStageTilemap.SetTile(cell, null);
+                    }
                 }
             }
         }
@@ -852,14 +1023,15 @@ namespace EditorTools
                 return;
             }
 
-            if (palette == null || palette.StageTile == null)
+            if (!TryGetStagePaintData(out StagePaintData paintData))
             {
-                Debug.LogWarning("Palette に Stage Tile が設定されていません");
+                string requiredTileName = stagePaintTileType == StagePaintTileType.Block ? "Stage Tile" : "Slope Tile";
+                Debug.LogWarning($"Palette に {requiredTileName} が設定されていません");
                 return;
             }
 
             Undo.RecordObject(targetStageTilemap, "Paint Stage Tile");
-            targetStageTilemap.SetTile(cell, palette.StageTile);
+            SetTileWithTransform(cell, paintData.tile, paintData.transform);
         }
 
         /// <summary>
@@ -1070,6 +1242,56 @@ namespace EditorTools
             Color oldColor = Handles.color;
             Handles.DrawSolidRectangleWithOutline(verts, fillColor, outlineColor);
             Handles.color = oldColor;
+        }
+
+        private void DrawSlopeCellPreview(Vector3Int cell, SlopeCorner corner, Color fillColor, Color outlineColor)
+        {
+            if (targetStageTilemap == null)
+            {
+                return;
+            }
+
+            Vector3 worldMin = targetStageTilemap.CellToWorld(cell);
+            Vector3 worldMax = targetStageTilemap.CellToWorld(cell + new Vector3Int(1, 1, 0));
+
+            Vector3 bottomLeft = new Vector3(worldMin.x, worldMin.y, 0f);
+            Vector3 bottomRight = new Vector3(worldMax.x, worldMin.y, 0f);
+            Vector3 topLeft = new Vector3(worldMin.x, worldMax.y, 0f);
+            Vector3 topRight = new Vector3(worldMax.x, worldMax.y, 0f);
+
+            Vector3[] triangle = BuildSlopeTriangleVertices(corner, bottomLeft, bottomRight, topLeft, topRight);
+
+            Color oldColor = Handles.color;
+
+            Handles.color = fillColor;
+            Handles.DrawAAConvexPolygon(triangle);
+
+            Handles.color = outlineColor;
+            Handles.DrawAAPolyLine(2f, triangle[0], triangle[1], triangle[2], triangle[0]);
+
+            Handles.color = oldColor;
+        }
+
+        private static Vector3[] BuildSlopeTriangleVertices(
+            SlopeCorner corner,
+            Vector3 bottomLeft,
+            Vector3 bottomRight,
+            Vector3 topLeft,
+            Vector3 topRight)
+        {
+            switch (corner)
+            {
+                case SlopeCorner.BottomLeft:
+                    return new[] { bottomLeft, topLeft, bottomRight };
+                case SlopeCorner.BottomRight:
+                    return new[] { bottomRight, topRight, bottomLeft };
+                case SlopeCorner.TopLeft:
+                    return new[] { topLeft, bottomLeft, topRight };
+                case SlopeCorner.TopRight:
+                    return new[] { topRight, bottomRight, topLeft };
+                default:
+                    return new[] { bottomLeft, topLeft, bottomRight };
+            }
         }
 
         /// <summary>
@@ -1426,7 +1648,8 @@ namespace EditorTools
                     clipboardTiles.Add(new ClipboardTile
                     {
                         offset = new Vector3Int(x - minTileX, y - minTileY, 0),
-                        tile = tile
+                        tile = tile,
+                        transform = targetStageTilemap.GetTransformMatrix(cell)
                     });
                 }
             }
@@ -1474,7 +1697,7 @@ namespace EditorTools
             foreach (ClipboardTile data in clipboardTiles)
             {
                 Vector3Int targetCell = anchorCell + data.offset;
-                targetStageTilemap.SetTile(targetCell, data.tile);
+                SetTileWithTransform(targetCell, data.tile, data.transform);
             }
 
             // 貼り付け後の範囲を選択範囲として保持
@@ -1501,6 +1724,7 @@ namespace EditorTools
             public Vector3Int sourceCell;
             public Vector3Int destinationCell;
             public TileBase tile;
+            public Matrix4x4 transform;
         }
 
         private void FinishMoveSelection()
@@ -1537,7 +1761,8 @@ namespace EditorTools
                     {
                         sourceCell = sourceCell,
                         destinationCell = sourceCell + currentMoveOffset,
-                        tile = tile
+                        tile = tile,
+                        transform = targetStageTilemap.GetTransformMatrix(sourceCell)
                     });
                 }
             }
@@ -1560,7 +1785,7 @@ namespace EditorTools
             // 移動先に実タイルだけ置く
             foreach (MovedTileData data in movedTiles)
             {
-                targetStageTilemap.SetTile(data.destinationCell, data.tile);
+                SetTileWithTransform(data.destinationCell, data.tile, data.transform);
             }
 
             selectedBounds = OffsetBounds(moveSourceBounds, currentMoveOffset);
