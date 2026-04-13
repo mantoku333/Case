@@ -148,6 +148,7 @@ PlayerSettings:
   - {fileID: 11400000, guid: 3ef116154ad12a24797dcdfeb0984cb5, type: 2}
   - {fileID: 11400000, guid: af82e077d29889344bae3c856bd6e134, type: 2}
   - {fileID: 11400000, guid: 3c7d7d9d04ea2d847922dc1f980a5dce, type: 2}
+  - {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -299,7 +300,10 @@ PlayerSettings:
   androidSymbolsSizeThreshold: 800
   m_BuildTargetIcons: []
   m_BuildTargetPlatformIcons: []
-  m_BuildTargetBatching: []
+  m_BuildTargetBatching:
+  - m_BuildTarget: Standalone
+    m_StaticBatching: 1
+    m_DynamicBatching: 0
   m_BuildTargetShaderSettings: []
   m_BuildTargetGraphicsJobs: []
   m_BuildTargetGraphicsJobMode: []

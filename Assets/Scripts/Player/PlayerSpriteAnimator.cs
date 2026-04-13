@@ -1,63 +1,55 @@
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
+using UnityEngine.Serialization;
 
-namespace Metroidvania.Player
+namespace Player
 {
     /// <summary>
     /// Sprite based player visual controller.
-    /// Keeps Spine workflow untouched by living in a separate component.
+    /// Animator mode only.
     /// </summary>
     [DisallowMultipleComponent]
+    [MovedFrom("Metroidvania.Player")]
     public class PlayerSpriteAnimator : MonoBehaviour
     {
         [Header("Controller")]
-        [SerializeField] private PlayerPlatformerMockController mockController;
-        [SerializeField] private PlayerController statsController;
+        [FormerlySerializedAs("statsController")]
+        [SerializeField] private MonoBehaviour stateProviderSource;
 
         [Header("Facing")]
         [SerializeField] private bool syncFacingFromController = true;
         [SerializeField] private bool autoCollectFlipRenderers = true;
         [SerializeField] private SpriteRenderer[] flipRenderers;
 
-        [Header("Animator Mode")]
-        [SerializeField] private bool useAnimator = true;
+        [Header("Animator")]
         [SerializeField] private Animator animator;
         [SerializeField] private int animatorLayer = 0;
         [SerializeField] private string idleStateName = "idle";
         [SerializeField] private string runStateName = "run";
         [SerializeField] private string jumpStateName = "jump";
+        [SerializeField] private string landStateName = "land";
         [SerializeField] private string dodgeStateName = "dodge";
-
-        [Header("Sprite Sequence Mode")]
-        [SerializeField] private SpriteRenderer targetRenderer;
-        [SerializeField] private Sprite[] idleSprites;
-        [SerializeField] private Sprite[] runSprites;
-        [SerializeField] private Sprite[] jumpSprites;
-        [SerializeField] private Sprite[] dodgeSprites;
-        [SerializeField, Min(1f)] private float idleFps = 8f;
-        [SerializeField, Min(1f)] private float runFps = 12f;
-        [SerializeField, Min(1f)] private float jumpFps = 8f;
-        [SerializeField, Min(1f)] private float dodgeFps = 16f;
-        [SerializeField] private bool loopJumpSprites = true;
-        [SerializeField] private bool loopDodgeSprites = false;
 
         private enum VisualState
         {
             Idle,
             Run,
             Jump,
+            Land,
             Dodge
         }
 
         private static readonly SpriteRenderer[] EmptyRenderers = new SpriteRenderer[0];
 
         private VisualState _currentState = (VisualState)(-1);
-        private Sprite[] _activeSprites;
-        private float _activeFps;
-        private int _frameIndex;
-        private float _frameTimer;
-        private bool _warnedNoController;
-        private bool _warnedNoRenderer;
+        private bool _warnedNoStateProvider;
+        private bool _warnedNoAnimator;
+        private IPlayerViewStateProvider _stateProvider;
         private SpriteRenderer[] _resolvedFlipRenderers = EmptyRenderers;
+        private bool _landingLocked;
+        private bool _hasPreviousGrounded;
+        private bool _previousGrounded;
+        private string _activeLandStateName;
 
         private void Awake()
         {
@@ -67,50 +59,69 @@ namespace Metroidvania.Player
         private void OnEnable()
         {
             _currentState = (VisualState)(-1);
-            _frameIndex = 0;
-            _frameTimer = 0f;
+            _landingLocked = false;
+            _hasPreviousGrounded = false;
+            _previousGrounded = false;
+            _activeLandStateName = null;
         }
 
         private void Update()
         {
-            if (!TryReadControllerState(out var isGrounded, out var isMoving, out var isGliding, out var isDodging, out var isFacingRight))
+            if (!TryReadProviderState(out var isGrounded, out var isMoving, out var isGliding, out var isDodging, out var isFacingRight))
             {
-                if (!_warnedNoController)
+                if (!_warnedNoStateProvider)
                 {
-                    Debug.LogWarning("PlayerSpriteAnimator: no compatible player controller found.", this);
-                    _warnedNoController = true;
+                    Debug.LogWarning("PlayerSpriteAnimator: no compatible state provider found.", this);
+                    _warnedNoStateProvider = true;
                 }
                 return;
             }
-            _warnedNoController = false;
+            _warnedNoStateProvider = false;
+
+            if (!IsAnimatorReady())
+            {
+                if (!_warnedNoAnimator)
+                {
+                    Debug.LogWarning("PlayerSpriteAnimator: Animator is missing or invalid.", this);
+                    _warnedNoAnimator = true;
+                }
+                return;
+            }
+            _warnedNoAnimator = false;
 
             if (syncFacingFromController)
             {
                 ApplyFacing(isFacingRight);
             }
 
-            var nextState = ResolveState(isGrounded, isMoving, isGliding, isDodging);
+            UpdateLandingLock(isGrounded);
+            if (_landingLocked && _currentState == VisualState.Land && IsLandAnimationFinished())
+            {
+                _landingLocked = false;
+            }
+
+            var nextState = ResolveState(isGrounded, isMoving, isGliding, isDodging, _landingLocked);
             if (_currentState != nextState)
             {
                 SwitchState(nextState);
-            }
-
-            if (!IsAnimatorModeActive())
-            {
-                TickSpriteSequence();
             }
         }
 
         private void ResolveReferences()
         {
-            if (mockController == null)
+            if (stateProviderSource == null)
             {
-                mockController = GetComponentInParent<PlayerPlatformerMockController>();
+                var providerInParent = GetComponentInParent<IPlayerViewStateProvider>();
+                if (providerInParent is MonoBehaviour monoProvider)
+                {
+                    stateProviderSource = monoProvider;
+                }
             }
 
-            if (statsController == null)
+            _stateProvider = stateProviderSource as IPlayerViewStateProvider;
+            if (_stateProvider == null && stateProviderSource != null)
             {
-                statsController = GetComponentInParent<PlayerController>();
+                Debug.LogWarning("PlayerSpriteAnimator: assigned state provider does not implement IPlayerViewStateProvider.", this);
             }
 
             if (animator == null)
@@ -122,51 +133,40 @@ namespace Metroidvania.Player
                 }
             }
 
-            if (targetRenderer == null)
-            {
-                targetRenderer = GetComponent<SpriteRenderer>();
-                if (targetRenderer == null)
-                {
-                    targetRenderer = GetComponentInParent<SpriteRenderer>();
-                }
-            }
-
-            if (flipRenderers == null || flipRenderers.Length == 0)
-            {
-                if (autoCollectFlipRenderers && targetRenderer != null)
-                {
-                    _resolvedFlipRenderers = new[] { targetRenderer };
-                }
-                else
-                {
-                    _resolvedFlipRenderers = EmptyRenderers;
-                }
-            }
-            else
+            if (flipRenderers != null && flipRenderers.Length > 0)
             {
                 _resolvedFlipRenderers = flipRenderers;
+                return;
             }
+
+            if (!autoCollectFlipRenderers)
+            {
+                _resolvedFlipRenderers = EmptyRenderers;
+                return;
+            }
+
+            var childRenderers = GetComponentsInChildren<SpriteRenderer>(true);
+            if (childRenderers != null && childRenderers.Length > 0)
+            {
+                _resolvedFlipRenderers = childRenderers;
+                return;
+            }
+
+            var parentRenderers = GetComponentsInParent<SpriteRenderer>(true);
+            _resolvedFlipRenderers = parentRenderers != null && parentRenderers.Length > 0
+                ? parentRenderers
+                : EmptyRenderers;
         }
 
-        private bool TryReadControllerState(out bool isGrounded, out bool isMoving, out bool isGliding, out bool isDodging, out bool isFacingRight)
+        private bool TryReadProviderState(out bool isGrounded, out bool isMoving, out bool isGliding, out bool isDodging, out bool isFacingRight)
         {
-            if (mockController != null)
+            if (_stateProvider != null)
             {
-                isGrounded = mockController.IsGrounded;
-                isMoving = mockController.IsMoving;
-                isGliding = mockController.IsGliding;
-                isDodging = mockController.IsDodging;
-                isFacingRight = mockController.IsFacingRight;
-                return true;
-            }
-
-            if (statsController != null)
-            {
-                isGrounded = statsController.IsGrounded;
-                isMoving = statsController.IsMoving;
-                isGliding = statsController.IsGliding;
-                isDodging = false;
-                isFacingRight = statsController.IsFacingRight;
+                isGrounded = _stateProvider.IsGrounded;
+                isMoving = _stateProvider.IsMoving;
+                isGliding = _stateProvider.IsGliding;
+                isDodging = _stateProvider.IsDodging;
+                isFacingRight = _stateProvider.IsFacingRight;
                 return true;
             }
 
@@ -178,11 +178,16 @@ namespace Metroidvania.Player
             return false;
         }
 
-        private static VisualState ResolveState(bool isGrounded, bool isMoving, bool isGliding, bool isDodging)
+        private static VisualState ResolveState(bool isGrounded, bool isMoving, bool isGliding, bool isDodging, bool hasLandingLock)
         {
             if (isDodging)
             {
                 return VisualState.Dodge;
+            }
+
+            if (hasLandingLock)
+            {
+                return VisualState.Land;
             }
 
             if (isGliding)
@@ -196,6 +201,27 @@ namespace Metroidvania.Player
             }
 
             return isMoving ? VisualState.Run : VisualState.Idle;
+        }
+
+        private void UpdateLandingLock(bool isGrounded)
+        {
+            if (!_hasPreviousGrounded)
+            {
+                _previousGrounded = isGrounded;
+                _hasPreviousGrounded = true;
+                return;
+            }
+
+            if (!_previousGrounded && isGrounded)
+            {
+                _landingLocked = true;
+            }
+            else if (!isGrounded)
+            {
+                _landingLocked = false;
+            }
+
+            _previousGrounded = isGrounded;
         }
 
         private void ApplyFacing(bool isFacingRight)
@@ -217,10 +243,9 @@ namespace Metroidvania.Player
             }
         }
 
-        private bool IsAnimatorModeActive()
+        private bool IsAnimatorReady()
         {
-            return useAnimator &&
-                   animator != null &&
+            return animator != null &&
                    animatorLayer >= 0 &&
                    animator.runtimeAnimatorController != null;
         }
@@ -228,22 +253,52 @@ namespace Metroidvania.Player
         private void SwitchState(VisualState nextState)
         {
             _currentState = nextState;
-            _frameIndex = 0;
-            _frameTimer = 0f;
 
-            if (IsAnimatorModeActive())
+            var stateName = ResolveAnimatorStateName(nextState);
+            if (nextState == VisualState.Land)
             {
-                var stateName = GetAnimatorStateName(nextState);
-                if (!string.IsNullOrEmpty(stateName))
-                {
-                    animator.Play(stateName, animatorLayer, 0f);
-                }
-                return;
+                _activeLandStateName = stateName;
+            }
+            else
+            {
+                _activeLandStateName = null;
             }
 
-            _activeSprites = GetSprites(nextState);
-            _activeFps = GetFps(nextState);
-            ApplyCurrentSprite();
+            if (!string.IsNullOrEmpty(stateName))
+            {
+                animator.Play(stateName, animatorLayer, 0f);
+            }
+        }
+
+        private bool IsLandAnimationFinished()
+        {
+            if (animator == null)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(_activeLandStateName))
+            {
+                return true;
+            }
+
+            var stateInfo = animator.GetCurrentAnimatorStateInfo(animatorLayer);
+            if (!stateInfo.IsName(_activeLandStateName))
+            {
+                return true;
+            }
+
+            return stateInfo.normalizedTime >= 1f && !animator.IsInTransition(animatorLayer);
+        }
+
+        /// <summary>
+        /// Receives AnimationEvent from land.anim.
+        /// Kept for compatibility with clip event wiring.
+        /// </summary>
+        public void OnLandAnimationEnd()
+        {
+            _landingLocked = false;
+            _activeLandStateName = null;
         }
 
         private string GetAnimatorStateName(VisualState state)
@@ -254,6 +309,8 @@ namespace Metroidvania.Player
                     return runStateName;
                 case VisualState.Jump:
                     return jumpStateName;
+                case VisualState.Land:
+                    return landStateName;
                 case VisualState.Dodge:
                     return dodgeStateName;
                 default:
@@ -261,102 +318,49 @@ namespace Metroidvania.Player
             }
         }
 
-        private Sprite[] GetSprites(VisualState state)
+        private string ResolveAnimatorStateName(VisualState state)
         {
+            var primary = GetAnimatorStateName(state);
+            if (AnimatorHasState(primary))
+            {
+                return primary;
+            }
+
             switch (state)
             {
                 case VisualState.Run:
-                    return runSprites;
+                    if (AnimatorHasState("Walk")) return "Walk";
+                    if (AnimatorHasState("run")) return "run";
+                    break;
                 case VisualState.Jump:
-                    return jumpSprites;
+                    if (AnimatorHasState("Glide")) return "Glide";
+                    if (AnimatorHasState("jump")) return "jump";
+                    break;
+                case VisualState.Land:
+                    if (AnimatorHasState("Land")) return "Land";
+                    if (AnimatorHasState("land")) return "land";
+                    break;
                 case VisualState.Dodge:
-                    return dodgeSprites;
+                    if (AnimatorHasState("Dodge")) return "Dodge";
+                    if (AnimatorHasState("dodge")) return "dodge";
+                    break;
                 default:
-                    return idleSprites;
+                    if (AnimatorHasState("Idle")) return "Idle";
+                    if (AnimatorHasState("idle")) return "idle";
+                    break;
             }
+
+            return primary;
         }
 
-        private float GetFps(VisualState state)
+        private bool AnimatorHasState(string stateName)
         {
-            switch (state)
+            if (animator == null || string.IsNullOrEmpty(stateName))
             {
-                case VisualState.Run:
-                    return runFps;
-                case VisualState.Jump:
-                    return jumpFps;
-                case VisualState.Dodge:
-                    return dodgeFps;
-                default:
-                    return idleFps;
-            }
-        }
-
-        private bool IsLoopState(VisualState state)
-        {
-            if (state == VisualState.Jump)
-            {
-                return loopJumpSprites;
+                return false;
             }
 
-            if (state == VisualState.Dodge)
-            {
-                return loopDodgeSprites;
-            }
-
-            return true;
-        }
-
-        private void TickSpriteSequence()
-        {
-            if (targetRenderer == null)
-            {
-                if (!_warnedNoRenderer)
-                {
-                    Debug.LogWarning("PlayerSpriteAnimator: target SpriteRenderer is missing.", this);
-                    _warnedNoRenderer = true;
-                }
-                return;
-            }
-            _warnedNoRenderer = false;
-
-            if (_activeSprites == null || _activeSprites.Length == 0)
-            {
-                return;
-            }
-
-            if (_activeSprites.Length == 1 || _activeFps <= 0f)
-            {
-                ApplyCurrentSprite();
-                return;
-            }
-
-            _frameTimer += Time.deltaTime * _activeFps;
-            while (_frameTimer >= 1f)
-            {
-                _frameTimer -= 1f;
-
-                if (!IsLoopState(_currentState) && _frameIndex >= _activeSprites.Length - 1)
-                {
-                    _frameIndex = _activeSprites.Length - 1;
-                }
-                else
-                {
-                    _frameIndex = (_frameIndex + 1) % _activeSprites.Length;
-                }
-            }
-
-            ApplyCurrentSprite();
-        }
-
-        private void ApplyCurrentSprite()
-        {
-            if (targetRenderer == null || _activeSprites == null || _activeSprites.Length == 0)
-            {
-                return;
-            }
-
-            _frameIndex = Mathf.Clamp(_frameIndex, 0, _activeSprites.Length - 1);
-            targetRenderer.sprite = _activeSprites[_frameIndex];
+            return animator.HasState(animatorLayer, Animator.StringToHash(stateName));
         }
     }
 }

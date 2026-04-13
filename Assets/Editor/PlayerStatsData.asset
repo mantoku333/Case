@@ -12,11 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8df0e0c66473485408c2c39612e236c4, type: 3}
   m_Name: PlayerStatsData
   m_EditorClassIdentifier: Assembly-CSharp::GameName.Player.PlayerStatsData
-  moveSpeed: 8
+  moveSpeed: 5
   glideMoveSpeed: 10
   fallSpeed: 3
-  jumpForce: 13
-  attackPerSecond: 3
-  gunRecoilForce: 25
-  reloadSeconds: 1
+  jumpForce: 8
+  dodgeDistance: 3
+  dodgeDuration: 0.5
+  attackPerSecond: 4
+  umbrellaAttackDuration: 0.2
+  gunRecoilForce: 30
+  gunRecoilDuration: 0.1
+  reloadSeconds: 1.2
+  parryDuration: 0.1
+  parryFlashDuration: 0.1
   maxHealth: 3

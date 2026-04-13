@@ -1,0 +1,14 @@
+namespace Player
+{
+    /// <summary>
+    /// Exposes player state needed by view components.
+    /// </summary>
+    public interface IPlayerViewStateProvider
+    {
+        bool IsGrounded { get; }
+        bool IsMoving { get; }
+        bool IsGliding { get; }
+        bool IsFacingRight { get; }
+        bool IsDodging { get; }
+    }
+}

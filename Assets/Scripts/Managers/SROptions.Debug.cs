@@ -9,10 +9,10 @@ public partial class SROptions
     [Sort(-100)]
     public void ResetPlayerPositionToOrigin()
     {
-        var player = Object.FindFirstObjectByType<PlayerPlatformerMockController>();
+        var player = Object.FindFirstObjectByType<global::PlayerController>();
         if (player == null)
         {
-            Debug.LogWarning("[SROptions] PlayerPlatformerMockController not found.");
+            Debug.LogWarning("[SROptions] PlayerController not found.");
             return;
         }
 
@@ -33,7 +33,7 @@ public partial class SROptions
     {
         get
         {
-            var player = Object.FindFirstObjectByType<PlayerPlatformerMockController>();
+            var player = Object.FindFirstObjectByType<global::PlayerController>();
             if (player != null)
             {
                 return player.GetComponent<DebugCheatModeController>() != null;
@@ -42,7 +42,7 @@ public partial class SROptions
         }
         set
         {
-            var player = Object.FindFirstObjectByType<PlayerPlatformerMockController>();
+            var player = Object.FindFirstObjectByType<global::PlayerController>();
             if (player != null)
             {
                 var cheatController = player.GetComponent<DebugCheatModeController>();
