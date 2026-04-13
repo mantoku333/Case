@@ -9,9 +9,6 @@ permissions:
   contents: read
   checks: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   unity-ci-skeleton:
     runs-on: ubuntu-latest
@@ -65,7 +62,7 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
         run: |
-          if [[ -n "$UNITY_LICENSE" ]]; then
+          if [[ -n "$UNITY_LICENSE" && -n "$UNITY_EMAIL" && -n "$UNITY_PASSWORD" ]]; then
             echo "mode=personal" >> "$GITHUB_OUTPUT"
             echo "can_run=true" >> "$GITHUB_OUTPUT"
             echo "Personal license secret found. Running Personal flow."
@@ -77,7 +74,7 @@ jobs:
             echo "mode=none" >> "$GITHUB_OUTPUT"
             echo "can_run=false" >> "$GITHUB_OUTPUT"
             echo "Unity tests will be skipped due to missing secrets."
-            echo "Required (Personal): UNITY_LICENSE"
+            echo "Required (Personal): UNITY_LICENSE + UNITY_EMAIL + UNITY_PASSWORD"
             echo "Required (Pro): UNITY_SERIAL + UNITY_EMAIL + UNITY_PASSWORD"
           fi
 
@@ -87,6 +84,8 @@ jobs:
         uses: game-ci/unity-test-runner@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           testMode: EditMode
@@ -112,7 +111,5 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: editmode-test-results
-          path: |
-            artifacts-personal
-            artifacts-professional
+          path: ${{ steps.validate-secrets.outputs.mode == 'personal' && steps.tests-personal.outputs.artifactsPath || steps.tests-professional.outputs.artifactsPath }}
           if-no-files-found: warn
