@@ -1,23 +1,54 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+// 下から並んだブロック群を段階的に上げ下げするシャッター壁
 public class ShutterWallBlockRise : MonoBehaviour
 {
+    // 下から上の順で扱うブロック一覧
     [SerializeField] private List<Transform> blocksFromBottom = new List<Transform>();
+    // true のとき、子オブジェクトから一覧を再構築する
     [SerializeField] private bool autoCollectChildren = true;
 
     [Header("Motion")]
+    // 起動時に開いた状態として扱うか
     [SerializeField] private bool startsOpened = false;
+    // 1ステージ移動にかける時間
     [SerializeField, Min(0.01f)] private float riseDurationPerBlock = 0.12f;
+    // ステージ間の待機時間
     [SerializeField, Min(0f)] private float intervalBetweenBlocks = 0.06f;
+    // true の場合、開いた後は閉じない
     [SerializeField] private bool lockAfterOpen = true;
 
+    // 各ブロックの閉状態ローカル座標（初期値）を保持
     private readonly List<Vector3> targetLocalPositions = new List<Vector3>();
 
+    // 開閉コルーチンnull 以外なら移動中
     private Coroutine openRoutine;
+    // 現在の論理状態
     private bool isOpen;
+    // 初期化済みフラグ
     private bool initialized;
+
+    // 現在開閉中かどうか
+    public bool IsTransitioning
+    {
+        get
+        {
+            InitializeIfNeeded();
+            return openRoutine != null;
+        }
+    }
+
+    // 現在開いているかどうか
+    public bool IsOpen
+    {
+        get
+        {
+            InitializeIfNeeded();
+            return isOpen;
+        }
+    }
 
     private void Awake()
     {
@@ -34,38 +65,56 @@ public class ShutterWallBlockRise : MonoBehaviour
     }
 #endif
 
-    public void Open()
+    public bool TryOpen()
     {
         InitializeIfNeeded();
 
+        // 移動中は受け付けない
         if (openRoutine != null)
         {
-            return;
+            return false;
         }
 
-        if (lockAfterOpen && isOpen)
+        // 既に開いている場合は何もしない
+        if (isOpen)
         {
-            return;
+            return false;
         }
 
         openRoutine = StartCoroutine(OpenRoutine());
+        return true;
+    }
+
+    public bool TryClose()
+    {
+        InitializeIfNeeded();
+
+        // 移動中は受け付けない
+        if (openRoutine != null)
+        {
+            return false;
+        }
+
+        // lockAfterOpen 有効時、または閉状態時は閉じ処理を開始しない
+        if (lockAfterOpen || !isOpen)
+        {
+            return false;
+        }
+
+        openRoutine = StartCoroutine(CloseRoutine());
+        return true;
+    }
+
+    public void Open()
+    {
+        // 互換用 API結果が必要なら TryOpen を利用する
+        TryOpen();
     }
 
     public void Close()
     {
-        InitializeIfNeeded();
-
-        if (openRoutine != null)
-        {
-            return;
-        }
-
-        if (lockAfterOpen || !isOpen)
-        {
-            return;
-        }
-
-        openRoutine = StartCoroutine(CloseRoutine());
+        // 互換用 API結果が必要なら TryClose を利用する
+        TryClose();
     }
 
     private void InitializeIfNeeded()
@@ -82,6 +131,7 @@ public class ShutterWallBlockRise : MonoBehaviour
             RebuildBlockList();
         }
 
+        // 現在の配置を閉状態の目標位置として記録
         targetLocalPositions.Clear();
 
         for (int i = 0; i < blocksFromBottom.Count; i++)
@@ -120,8 +170,8 @@ public class ShutterWallBlockRise : MonoBehaviour
             yield break;
         }
 
-        // Stage 1: move only the bottom block to overlap the second block,
-        // Stage 2: move bottom 2 blocks to overlap the third block, ...
+        // ステージ1: 最下段のみを2段目に重ねる
+        // ステージ2: 下2段を3段目に重ねる以降同様
         for (int stage = 1; stage < blockCount; stage++)
         {
             float overlapY = openStartPositions[stage].y;
@@ -133,7 +183,7 @@ public class ShutterWallBlockRise : MonoBehaviour
             }
         }
 
-        // Final stage: once all blocks overlap at the top, move all blocks one more step up.
+        // 最終ステージ: 全段を最上段のさらに1段上まで持ち上げる
         float finalOpenY = openStartPositions[blockCount - 1].y + stepHeight;
         yield return MoveBlocksToY(blockCount, finalOpenY);
 
@@ -164,8 +214,9 @@ public class ShutterWallBlockRise : MonoBehaviour
             yield break;
         }
 
-        // Reverse of opening: first undo the final full-stack lift,
-        // then peel layers back down from top overlap to original positions.
+        // 開き処理の逆順:
+        // 1) 全段持ち上げを戻す
+        // 2) 上から順に重なりを解いて元位置へ戻す
         float topClosedY = targetLocalPositions[blockCount - 1].y;
         yield return MoveBlocksToY(blockCount, topClosedY);
 
@@ -216,6 +267,7 @@ public class ShutterWallBlockRise : MonoBehaviour
             yield break;
         }
 
+        // SmoothStep で補間して急な動きを抑える
         float duration = Mathf.Max(0.01f, riseDurationPerBlock);
         float elapsed = 0f;
 
@@ -244,13 +296,16 @@ public class ShutterWallBlockRise : MonoBehaviour
 
     private float ResolveStepHeight(List<Vector3> referencePositions)
     {
+        // まず現在配置から段差を推定
         float step = FindMinPositiveYStep(referencePositions);
 
+        // 推定不可なら初期配置から再推定
         if (!float.IsFinite(step) || step <= 0.001f)
         {
             step = FindMinPositiveYStep(targetLocalPositions);
         }
 
+        // それでも不可なら安全値を採用
         if (!float.IsFinite(step) || step <= 0.001f)
         {
             step = 1f;
@@ -266,6 +321,7 @@ public class ShutterWallBlockRise : MonoBehaviour
             return float.PositiveInfinity;
         }
 
+        // 隣接ブロック間の最小正差分を段差として使う
         float minStep = float.PositiveInfinity;
 
         for (int i = 1; i < positions.Count; i++)
@@ -284,6 +340,7 @@ public class ShutterWallBlockRise : MonoBehaviour
     {
         blocksFromBottom.Clear();
 
+        // 子オブジェクトを収集し、Y昇順（下→上）に並べる
         foreach (Transform child in transform)
         {
             blocksFromBottom.Add(child);
