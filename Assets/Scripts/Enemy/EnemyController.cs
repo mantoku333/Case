@@ -6,7 +6,7 @@ namespace GameName.Enemy
     /// <summary>
     /// シンプルな敵の巡回移動と接触ダメージを管理するクラス
     /// </summary>
-    public class EnemyController : MonoBehaviour
+    public class EnemyController : MonoBehaviour, IAttackReceiver
     {
         [SerializeField] private float moveSpeed = 2f;
         [SerializeField] private float patrolDistance = 2f;
@@ -49,6 +49,12 @@ namespace GameName.Enemy
             {
                 playerHealth.TakeDamage(damageToPlayer);
             }
+        }
+
+        public void OnAttacked(AttackHitbox attacker, Collider2D hitCollider)
+        {
+            Debug.Log("敵に当たりました");
+            Destroy(gameObject);
         }
     }
 }
