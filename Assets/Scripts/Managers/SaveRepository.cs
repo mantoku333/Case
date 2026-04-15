@@ -124,7 +124,7 @@ public static class SaveRepository
         }
     }
 
-    private static string GetSaveFilePath(int slotIndex)
+    public static string GetSaveFilePath(int slotIndex)
     {
         return Path.Combine(Application.persistentDataPath, string.Format(SaveFileNameFormat, slotIndex));
     }

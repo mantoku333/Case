@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using Metroidvania.Player;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -192,6 +193,35 @@ public partial class SROptions
         if (!deleted)
         {
             Debug.LogWarning("[SROptions] Delete save failed.");
+        }
+    }
+
+    [Category(SaveCategory)]
+    [DisplayName("Open Save File")]
+    [Sort(-90)]
+    public void OpenSelectedSaveFile()
+    {
+        string savePath = SaveRepository.GetSaveFilePath(selectedSaveSlot);
+        if (string.IsNullOrWhiteSpace(savePath))
+        {
+            Debug.LogWarning("[SROptions] Save path is empty.");
+            return;
+        }
+
+        if (!File.Exists(savePath))
+        {
+            Debug.LogWarning($"[SROptions] Save file not found. slot={selectedSaveSlot}, path='{savePath}'");
+            return;
+        }
+
+        try
+        {
+            string url = new Uri(savePath).AbsoluteUri;
+            Application.OpenURL(url);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"[SROptions] Failed to open save file: {exception}");
         }
     }
 }
