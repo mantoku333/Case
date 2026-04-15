@@ -77,27 +77,6 @@ public static class GameProgressFlags
         }
     }
 
-    private static void ApplyLegacyFlags(List<SaveBoolEntry> legacyFlags)
-    {
-        flags.Clear();
-
-        if (legacyFlags == null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < legacyFlags.Count; i++)
-        {
-            SaveBoolEntry entry = legacyFlags[i];
-            if (string.IsNullOrWhiteSpace(entry.key))
-            {
-                continue;
-            }
-
-            flags[entry.key] = entry.value;
-        }
-    }
-
     private static GameProgressFlagsPayload CreatePayload()
     {
         var payload = new GameProgressFlagsPayload
@@ -157,8 +136,7 @@ public static class GameProgressFlags
             string json = saveData.GetCustomSectionJson(SectionKey);
             if (string.IsNullOrWhiteSpace(json))
             {
-                // Backward compatibility: read legacy flags from SaveGameData.flags.
-                ApplyLegacyFlags(saveData.flags);
+                ApplyPayload(null);
                 return;
             }
 
@@ -170,7 +148,7 @@ public static class GameProgressFlags
             catch (Exception exception)
             {
                 Debug.LogError($"[GameProgressFlags] Failed to parse saved flags. {exception}");
-                ApplyLegacyFlags(saveData.flags);
+                ApplyPayload(null);
             }
         }
     }

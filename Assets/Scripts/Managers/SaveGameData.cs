@@ -9,74 +9,8 @@ public sealed class SaveGameData
     public string sceneName;
     public SerializableVector3 playerPosition;
     public string savedAtUtc;
-    public List<SaveBoolEntry> flags = new List<SaveBoolEntry>();
     public List<SaveItemStackEntry> items = new List<SaveItemStackEntry>();
     public List<SaveCustomSectionEntry> customSections = new List<SaveCustomSectionEntry>();
-
-    public bool TryGetFlag(string key, out bool value)
-    {
-        value = false;
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            return false;
-        }
-
-        EnsureCollections();
-
-        for (int i = 0; i < flags.Count; i++)
-        {
-            if (!string.Equals(flags[i].key, key, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            value = flags[i].value;
-            return true;
-        }
-
-        return false;
-    }
-
-    public void SetFlag(string key, bool value)
-    {
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            return;
-        }
-
-        EnsureCollections();
-
-        for (int i = 0; i < flags.Count; i++)
-        {
-            if (!string.Equals(flags[i].key, key, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            flags[i] = new SaveBoolEntry { key = key, value = value };
-            return;
-        }
-
-        flags.Add(new SaveBoolEntry { key = key, value = value });
-    }
-
-    public void RemoveFlag(string key)
-    {
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            return;
-        }
-
-        EnsureCollections();
-
-        for (int i = flags.Count - 1; i >= 0; i--)
-        {
-            if (string.Equals(flags[i].key, key, StringComparison.Ordinal))
-            {
-                flags.RemoveAt(i);
-            }
-        }
-    }
 
     public int GetItemCount(string itemId)
     {
@@ -184,11 +118,6 @@ public sealed class SaveGameData
 
     private void EnsureCollections()
     {
-        if (flags == null)
-        {
-            flags = new List<SaveBoolEntry>();
-        }
-
         if (items == null)
         {
             items = new List<SaveItemStackEntry>();
@@ -199,13 +128,6 @@ public sealed class SaveGameData
             customSections = new List<SaveCustomSectionEntry>();
         }
     }
-}
-
-[Serializable]
-public struct SaveBoolEntry
-{
-    public string key;
-    public bool value;
 }
 
 [Serializable]
