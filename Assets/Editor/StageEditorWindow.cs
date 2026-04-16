@@ -117,14 +117,43 @@ namespace EditorTools
                 targetStageTilemap = FindFirstObjectByType<Tilemap>();
             }
 
+            ApplyCameraPreview(false);
             SceneView.duringSceneGui += OnSceneGui;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            SceneView.RepaintAll();
         }
 
         private void OnDisable()
         {
             SaveEditorPrefs();
             SceneView.duringSceneGui -= OnSceneGui;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
             DestroyCachedEditor();
+        }
+
+        private void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state != PlayModeStateChange.ExitingEditMode &&
+                state != PlayModeStateChange.EnteredPlayMode)
+            {
+                return;
+            }
+
+            // Entering Play can reinitialize camera components; apply once on the next editor tick.
+            EditorApplication.delayCall += ApplyCameraPreviewAfterPlayModeChange;
+        }
+
+        private void ApplyCameraPreviewAfterPlayModeChange()
+        {
+            if (cameraData == null)
+            {
+                LoadEditorPrefs();
+            }
+
+            ApplyCameraPreview(false);
+            SceneView.RepaintAll();
+            Repaint();
         }
 
         private void OnGUI()
@@ -172,7 +201,7 @@ namespace EditorTools
             {
                 cameraData = newCameraData;
                 SaveEditorPrefs();
-                ApplyDirectFollowCamPreview();
+                ApplyCameraPreview();
                 SceneView.RepaintAll();
             }
 
@@ -507,53 +536,78 @@ namespace EditorTools
             Undo.RecordObject(cameraData, "Adjust Camera Data");
             cameraData.SetFollowOffsetY(followOffsetY);
             cameraData.SetOrthographicSize(orthographicSize);
-            ApplyDirectFollowCamPreview();
+            ApplyCameraPreview();
             SceneView.RepaintAll();
         }
 
-        private void ApplyDirectFollowCamPreview()
+        private void ApplyCameraPreview(bool recordUndo = true)
         {
             if (cameraData == null)
             {
                 return;
             }
 
+            Unity.Cinemachine.CinemachineCamera followCamera = null;
+            Unity.Cinemachine.CinemachinePositionComposer followComposer = null;
+            int bestPriority = int.MinValue;
+
             Unity.Cinemachine.CinemachineCamera[] cameras =
                 FindObjectsByType<Unity.Cinemachine.CinemachineCamera>(FindObjectsSortMode.None);
 
             foreach (Unity.Cinemachine.CinemachineCamera camera in cameras)
             {
-                if (camera == null || camera.name != "CN_DirectFollowCam")
+                if (camera == null)
                 {
                     continue;
                 }
 
-                Unity.Cinemachine.CinemachineFollow follow =
-                    camera.GetComponent<Unity.Cinemachine.CinemachineFollow>();
-
-                bool offsetChanged = false;
-                if (follow != null)
+                Unity.Cinemachine.CinemachinePositionComposer positionComposer =
+                    camera.GetComponent<Unity.Cinemachine.CinemachinePositionComposer>();
+                if (positionComposer == null)
                 {
-                    Vector3 offset = follow.FollowOffset;
-                    offsetChanged = !Mathf.Approximately(offset.y, cameraData.FollowOffsetY);
-
-                    if (offsetChanged)
-                    {
-                        Undo.RecordObject(follow, "Sync CN_DirectFollowCam Offset");
-                        offset.y = cameraData.FollowOffsetY;
-                        follow.FollowOffset = offset;
-                    }
+                    continue;
                 }
 
-                var lens = camera.Lens;
-                bool zoomChanged = !Mathf.Approximately(lens.OrthographicSize, cameraData.OrthographicSize);
-
-                if (zoomChanged)
+                int priority = camera.Priority.Enabled ? camera.Priority.Value : 0;
+                if (followCamera != null && priority <= bestPriority)
                 {
-                    Undo.RecordObject(camera, "Sync CN_DirectFollowCam Zoom");
-                    lens.OrthographicSize = cameraData.OrthographicSize;
-                    camera.Lens = lens;
+                    continue;
                 }
+
+                followCamera = camera;
+                followComposer = positionComposer;
+                bestPriority = priority;
+            }
+
+            if (followCamera == null || followComposer == null)
+            {
+                return;
+            }
+
+            Vector3 targetOffset = followComposer.TargetOffset;
+            if (!Mathf.Approximately(targetOffset.y, cameraData.FollowOffsetY))
+            {
+                if (recordUndo)
+                {
+                    Undo.RecordObject(followComposer, "Sync Follow Camera Target Offset");
+                }
+
+                targetOffset.y = cameraData.FollowOffsetY;
+                followComposer.TargetOffset = targetOffset;
+            }
+
+            var lens = followCamera.Lens;
+            bool zoomChanged = !Mathf.Approximately(lens.OrthographicSize, cameraData.OrthographicSize);
+
+            if (zoomChanged)
+            {
+                if (recordUndo)
+                {
+                    Undo.RecordObject(followCamera, "Sync Follow Camera Zoom");
+                }
+
+                lens.OrthographicSize = cameraData.OrthographicSize;
+                followCamera.Lens = lens;
             }
         }
 
