@@ -25,7 +25,6 @@ public sealed class SaveManager : MonoBehaviour
     private static Vector2 lastTracedRigidbodyPosition;
     private static int traceFramesRemaining;
     private static int tracedLoadRequestId;
-    private static readonly Dictionary<string, int> runtimeItems = new Dictionary<string, int>(StringComparer.Ordinal);
     private static readonly List<ISaveDataModule> registeredModules = new List<ISaveDataModule>();
     private static readonly List<ISaveDataModule> moduleExecutionBuffer = new List<ISaveDataModule>();
 
@@ -148,45 +147,22 @@ public sealed class SaveManager : MonoBehaviour
 
     public static void SetItemCount(string itemId, int count)
     {
-        if (string.IsNullOrWhiteSpace(itemId))
-        {
-            return;
-        }
-
-        int normalized = Mathf.Max(0, count);
-        if (normalized <= 0)
-        {
-            runtimeItems.Remove(itemId);
-            return;
-        }
-
-        runtimeItems[itemId] = normalized;
+        GameItems.SetCount(itemId, count);
     }
 
     public static int GetItemCount(string itemId)
     {
-        if (string.IsNullOrWhiteSpace(itemId))
-        {
-            return 0;
-        }
-
-        return runtimeItems.TryGetValue(itemId, out var count) ? Mathf.Max(0, count) : 0;
+        return GameItems.GetCount(itemId);
     }
 
     public static void AddItemCount(string itemId, int delta)
     {
-        if (string.IsNullOrWhiteSpace(itemId) || delta == 0)
-        {
-            return;
-        }
-
-        int current = GetItemCount(itemId);
-        SetItemCount(itemId, current + delta);
+        GameItems.AddCount(itemId, delta);
     }
 
     public static void ClearAllItems()
     {
-        runtimeItems.Clear();
+        GameItems.ClearAll();
     }
 
     public static bool HasSave()
@@ -260,7 +236,6 @@ public sealed class SaveManager : MonoBehaviour
             savedAtUtc = DateTime.UtcNow.ToString("o")
         };
 
-        WriteRuntimeCollectionsToSave(saveData);
         CaptureModules(saveData);
 
         return SaveRepository.TryWrite(slotIndex, saveData);
@@ -417,7 +392,6 @@ public sealed class SaveManager : MonoBehaviour
             playerController.transform.position = loadedPosition;
         }
 
-        ReadRuntimeCollectionsFromSave(loadedData);
         RestoreModules(loadedData);
 
         Debug.Log($"[SaveManager] Save loaded. slot={pendingLoadSlotIndex}, scene={loadedData.sceneName}");
@@ -525,73 +499,6 @@ public sealed class SaveManager : MonoBehaviour
             var rb = player.GetComponent<Rigidbody2D>();
             Debug.Log(
                 $"[SaveManager][Trace] {context}: player[{i}] name='{player.gameObject.name}', instanceId={player.GetInstanceID()}, active={player.gameObject.activeInHierarchy}, scene='{player.gameObject.scene.name}', transform={player.transform.position}, rb={(rb != null ? rb.position.ToString() : "none")}");
-        }
-    }
-
-    private static void WriteRuntimeCollectionsToSave(SaveGameData saveData)
-    {
-        if (saveData == null)
-        {
-            return;
-        }
-
-        if (saveData.items == null)
-        {
-            saveData.items = new List<SaveItemStackEntry>();
-        }
-        else
-        {
-            saveData.items.Clear();
-        }
-
-        foreach (var pair in runtimeItems)
-        {
-            if (string.IsNullOrWhiteSpace(pair.Key))
-            {
-                continue;
-            }
-
-            int count = Mathf.Max(0, pair.Value);
-            if (count <= 0)
-            {
-                continue;
-            }
-
-            saveData.items.Add(new SaveItemStackEntry
-            {
-                itemId = pair.Key,
-                count = count
-            });
-        }
-    }
-
-    private static void ReadRuntimeCollectionsFromSave(SaveGameData saveData)
-    {
-        runtimeItems.Clear();
-
-        if (saveData == null)
-        {
-            return;
-        }
-
-        if (saveData.items != null)
-        {
-            for (int i = 0; i < saveData.items.Count; i++)
-            {
-                SaveItemStackEntry entry = saveData.items[i];
-                if (string.IsNullOrWhiteSpace(entry.itemId))
-                {
-                    continue;
-                }
-
-                int count = Mathf.Max(0, entry.count);
-                if (count <= 0)
-                {
-                    continue;
-                }
-
-                runtimeItems[entry.itemId] = count;
-            }
         }
     }
 

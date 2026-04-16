@@ -9,61 +9,7 @@ public sealed class SaveGameData
     public string sceneName;
     public SerializableVector3 playerPosition;
     public string savedAtUtc;
-    public List<SaveItemStackEntry> items = new List<SaveItemStackEntry>();
     public List<SaveCustomSectionEntry> customSections = new List<SaveCustomSectionEntry>();
-
-    public int GetItemCount(string itemId)
-    {
-        if (string.IsNullOrWhiteSpace(itemId))
-        {
-            return 0;
-        }
-
-        EnsureCollections();
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            if (string.Equals(items[i].itemId, itemId, StringComparison.Ordinal))
-            {
-                return Mathf.Max(0, items[i].count);
-            }
-        }
-
-        return 0;
-    }
-
-    public void SetItemCount(string itemId, int count)
-    {
-        if (string.IsNullOrWhiteSpace(itemId))
-        {
-            return;
-        }
-
-        EnsureCollections();
-        int normalized = Mathf.Max(0, count);
-
-        for (int i = 0; i < items.Count; i++)
-        {
-            if (!string.Equals(items[i].itemId, itemId, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (normalized <= 0)
-            {
-                items.RemoveAt(i);
-                return;
-            }
-
-            items[i] = new SaveItemStackEntry { itemId = itemId, count = normalized };
-            return;
-        }
-
-        if (normalized > 0)
-        {
-            items.Add(new SaveItemStackEntry { itemId = itemId, count = normalized });
-        }
-    }
 
     public string GetCustomSectionJson(string sectionKey)
     {
@@ -118,23 +64,11 @@ public sealed class SaveGameData
 
     private void EnsureCollections()
     {
-        if (items == null)
-        {
-            items = new List<SaveItemStackEntry>();
-        }
-
         if (customSections == null)
         {
             customSections = new List<SaveCustomSectionEntry>();
         }
     }
-}
-
-[Serializable]
-public struct SaveItemStackEntry
-{
-    public string itemId;
-    public int count;
 }
 
 [Serializable]
