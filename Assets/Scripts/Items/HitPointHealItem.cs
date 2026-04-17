@@ -32,16 +32,10 @@ public class HitPointHealItem : MonoBehaviour
 
         if (playerHealth == null){ return; }
 
-        //回復前
-        //int beforeHp = playerHealth.CurrentHealth;
-
         //HP回復
         playerHealth.Heal(healAmount);
 
-        //回復後
-        //int afterHp = playerHealth.CurrentHealth;
-
-        //Debug.Log($"HP回復: {beforeHp} → {afterHp} / 最大HP: {playerHealth.MaxHealth}");
+        Debug.Log($"Playerが回復しました　HP: {playerHealth.CurrentHealth}/{playerHealth.MaxHealth}");
 
         //取得判定をtrueにする
         isPickedUp = true;
