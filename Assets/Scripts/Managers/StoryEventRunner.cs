@@ -10,12 +10,18 @@ using Yarn.Unity;
 public sealed class StoryEventRunner : MonoBehaviour
 {
     [SerializeField] private DialogueManager dialogueManager = null!;
+    [SerializeField] private string eventCameraName = "EventCam";
+    [SerializeField] private int eventCameraPriorityFloor = 100;
 
     private readonly Queue<StoryEventDefinition> queuedEvents = new Queue<StoryEventDefinition>();
     private StoryEventDefinition activeEvent;
     private DialogueRunner activeDialogueRunner;
     private Coroutine activeRoutine;
     private bool waitingDialogueCompletion;
+    private CinemachineCamera activeEventCamera;
+    private int cachedEventCameraPriorityValue;
+    private bool cachedEventCameraPriorityEnabled;
+    private bool hasCachedEventCameraPriority;
 
     public bool HasPendingEvents => activeEvent != null || queuedEvents.Count > 0;
 
@@ -45,6 +51,7 @@ public sealed class StoryEventRunner : MonoBehaviour
 
         waitingDialogueCompletion = false;
         UnsubscribeFromDialogueComplete();
+        RestoreEventCameraPriority();
         StoryPauseRuntime.ClearOverride();
 
         activeEvent = null;
@@ -130,47 +137,57 @@ public sealed class StoryEventRunner : MonoBehaviour
 
     private IEnumerator RunEventSequence(StoryEventDefinition definition, DialogueRunner runner)
     {
-        StoryPauseRuntime.SetOverride(definition.pausePolicy);
+        ElevateEventCameraPriority();
 
-        if (definition.preActions != null && definition.preActions.Count > 0)
+        try
         {
-            yield return RunActions(definition.preActions);
+            StoryPauseRuntime.SetOverride(definition.pausePolicy);
+
+            if (definition.preActions != null && definition.preActions.Count > 0)
+            {
+                yield return RunActions(definition.preActions);
+            }
+
+            activeDialogueRunner = runner;
+            waitingDialogueCompletion = true;
+            activeDialogueRunner.onDialogueComplete?.AddListener(OnDialogueComplete);
+
+            definition.onStartMutations?.Apply();
+            dialogueManager.StartConversation(definition.dialogueNodeName, definition.dialogueStyle);
+
+            while (waitingDialogueCompletion)
+            {
+                yield return null;
+            }
+
+            UnsubscribeFromDialogueComplete();
+
+            if (definition.postActions != null && definition.postActions.Count > 0)
+            {
+                yield return RunActions(definition.postActions);
+            }
+
+            definition.onCompleteMutations?.Apply();
+
+            if (!string.IsNullOrWhiteSpace(definition.runOnceFlagKey))
+            {
+                GameProgressFlags.Set(definition.runOnceFlagKey.Trim(), true);
+            }
+
+            if (definition.autoSaveOnComplete)
+            {
+                SaveManager.TrySaveCurrentGame();
+            }
         }
-
-        activeDialogueRunner = runner;
-        waitingDialogueCompletion = true;
-        activeDialogueRunner.onDialogueComplete?.AddListener(OnDialogueComplete);
-
-        definition.onStartMutations?.Apply();
-        dialogueManager.StartConversation(definition.dialogueNodeName, definition.dialogueStyle);
-
-        while (waitingDialogueCompletion)
+        finally
         {
-            yield return null;
+            waitingDialogueCompletion = false;
+            UnsubscribeFromDialogueComplete();
+            StoryPauseRuntime.ClearOverride();
+            RestoreEventCameraPriority();
+            activeEvent = null;
+            activeRoutine = null;
         }
-
-        UnsubscribeFromDialogueComplete();
-
-        if (definition.postActions != null && definition.postActions.Count > 0)
-        {
-            yield return RunActions(definition.postActions);
-        }
-
-        definition.onCompleteMutations?.Apply();
-
-        if (!string.IsNullOrWhiteSpace(definition.runOnceFlagKey))
-        {
-            GameProgressFlags.Set(definition.runOnceFlagKey.Trim(), true);
-        }
-
-        if (definition.autoSaveOnComplete)
-        {
-            SaveManager.TrySaveCurrentGame();
-        }
-
-        StoryPauseRuntime.ClearOverride();
-        activeEvent = null;
-        activeRoutine = null;
 
         TryStartNextEvent();
     }
@@ -343,5 +360,69 @@ public sealed class StoryEventRunner : MonoBehaviour
             activeDialogueRunner.onDialogueComplete?.RemoveListener(OnDialogueComplete);
             activeDialogueRunner = null;
         }
+    }
+
+    private void ElevateEventCameraPriority()
+    {
+        RestoreEventCameraPriority();
+
+        if (string.IsNullOrWhiteSpace(eventCameraName))
+        {
+            return;
+        }
+
+        string targetName = eventCameraName.Trim();
+        CinemachineCamera[] cameras = Object.FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
+        int maxPriority = int.MinValue;
+
+        for (int i = 0; i < cameras.Length; i++)
+        {
+            if (cameras[i] == null)
+            {
+                continue;
+            }
+
+            maxPriority = Mathf.Max(maxPriority, cameras[i].Priority.Value);
+
+            if (activeEventCamera == null &&
+                (string.Equals(cameras[i].name, targetName, System.StringComparison.OrdinalIgnoreCase) ||
+                 cameras[i].name.IndexOf(targetName, System.StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                activeEventCamera = cameras[i];
+            }
+        }
+
+        if (activeEventCamera == null)
+        {
+            return;
+        }
+
+        cachedEventCameraPriorityValue = activeEventCamera.Priority.Value;
+        cachedEventCameraPriorityEnabled = activeEventCamera.Priority.Enabled;
+        hasCachedEventCameraPriority = true;
+
+        int topPriority = maxPriority == int.MinValue ? eventCameraPriorityFloor : maxPriority + 10;
+        int desiredPriority = Mathf.Max(eventCameraPriorityFloor, topPriority);
+        activeEventCamera.Priority.Value = desiredPriority;
+        activeEventCamera.Priority.Enabled = true;
+    }
+
+    private void RestoreEventCameraPriority()
+    {
+        if (!hasCachedEventCameraPriority)
+        {
+            return;
+        }
+
+        if (activeEventCamera != null)
+        {
+            activeEventCamera.Priority.Value = cachedEventCameraPriorityValue;
+            activeEventCamera.Priority.Enabled = cachedEventCameraPriorityEnabled;
+        }
+
+        activeEventCamera = null;
+        hasCachedEventCameraPriority = false;
+        cachedEventCameraPriorityValue = 0;
+        cachedEventCameraPriorityEnabled = false;
     }
 }
