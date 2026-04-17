@@ -273,6 +273,7 @@ public sealed class ProloguePresentationRuntime : MonoBehaviour
         }
 
         string expectedName = prefix + id.Trim();
+        string expectedNameWithUnderscore = "_" + expectedName;
         Transform[] transforms = UnityEngine.Object.FindObjectsByType<Transform>(
             FindObjectsInactive.Include,
             FindObjectsSortMode.None);
@@ -280,7 +281,9 @@ public sealed class ProloguePresentationRuntime : MonoBehaviour
         for (int i = 0; i < transforms.Length; i++)
         {
             Transform tf = transforms[i];
-            if (tf != null && string.Equals(tf.name, expectedName, StringComparison.Ordinal))
+            if (tf != null &&
+                (string.Equals(tf.name, expectedName, StringComparison.Ordinal) ||
+                 string.Equals(tf.name, expectedNameWithUnderscore, StringComparison.Ordinal)))
             {
                 return tf;
             }

@@ -16,7 +16,7 @@ MonoBehaviour:
   - eventId: prologue
     sceneName: Story_Mantoku
     dialogueNodeName: Prologue
-    dialogueStyle: 0
+    dialogueStyle: 1
     runOnceFlagKey: prologue_completed
     conditions:
       requiredTrueFlags: []
