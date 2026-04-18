@@ -186,7 +186,7 @@ namespace Metroidvania.UI
                 _currentOffset = offset;
             }
 
-            if (!_hasLoggedAutoSizeStart)
+            if (logAutoSizeResult && !_hasLoggedAutoSizeStart)
             {
                 _hasLoggedAutoSizeStart = true;
                 string bubbleScale = _bubbleRectTransform != null ? _bubbleRectTransform.localScale.ToString("F3") : "null";
@@ -197,7 +197,7 @@ namespace Metroidvania.UI
                 string textAnchors = _textRectTransform != null
                     ? $"{_textRectTransform.anchorMin}->{_textRectTransform.anchorMax}"
                     : "null";
-                Debug.LogWarning(
+                Debug.Log(
                     $"[BubbleDialogueView] AutoSize debug ON. scene='{gameObject.scene.name}', object='{name}', " +
                     $"autoResize={autoResizeBubble}, logAutoSizeResult={logAutoSizeResult}, maxTextWidth={maxTextWidth:0.0}, " +
                     $"minBubble=({minBubbleWidth:0.0},{minBubbleHeight:0.0}), " +
