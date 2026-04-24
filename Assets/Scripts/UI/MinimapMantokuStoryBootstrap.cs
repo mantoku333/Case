@@ -28,7 +28,11 @@ public static class MinimapMantokuStoryBootstrap
             return;
         }
 
-        MantokuStoryHudBootstrap.EnsureHudCanvasExists();
+        Canvas hudCanvas = MantokuStoryHudBootstrap.EnsureHudCanvasExists();
+        if (hudCanvas == null)
+        {
+            return;
+        }
 
         RoomCameraTrigger[] triggers = Object.FindObjectsByType<RoomCameraTrigger>(FindObjectsSortMode.None);
         if (triggers == null || triggers.Length == 0)

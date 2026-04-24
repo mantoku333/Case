@@ -8,7 +8,7 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/Test_Fuyuno.unity
     guid: e13d51ba02681d24782271821bb504ca
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Fix_Player_Mantoku.unity
     guid: 566ebec55d5079f4c8db9aae7bd4057a
   - enabled: 1
