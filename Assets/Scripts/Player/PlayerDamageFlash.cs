@@ -13,9 +13,14 @@ namespace Metroidvania.Player
         [SerializeField] private SpriteRenderer[] targetRenderers;
         [SerializeField] private Color flashColor = Color.red;
         [SerializeField, Min(0.01f)] private float flashDuration = 0.08f;
+        [SerializeField, Min(1)] private int flashRepeatCount = 3;
+        [SerializeField, Min(0f)] private float normalDuration = 0.08f;
+        [SerializeField, Min(0f)] private float flashCooldownSeconds = 3f;
 
-        private Color[] defaultColors;
+
+        private Color[] restoreColors;
         private Coroutine flashCoroutine;
+        private float nextFlashTime;
 
         private void Awake()
         {
@@ -24,15 +29,7 @@ namespace Metroidvania.Player
                 targetRenderers = GetComponentsInChildren<SpriteRenderer>(true);
             }
 
-            defaultColors = new Color[targetRenderers.Length];
-
-            for (int i = 0; i < targetRenderers.Length; i++)
-            {
-                if (targetRenderers[i] != null)
-                {
-                    defaultColors[i] = targetRenderers[i].color;
-                }
-            }
+            restoreColors = new Color[targetRenderers.Length];
         }
 
         /// <summary>
@@ -40,6 +37,25 @@ namespace Metroidvania.Player
         /// </summary>
         public void PlayFlash()
         {
+            if (targetRenderers == null || targetRenderers.Length == 0)
+            {
+                return;
+            }
+
+            if (Time.time < nextFlashTime)
+            {
+                return;
+            }
+
+            nextFlashTime = Time.time + flashCooldownSeconds;
+
+
+            // Capture the current runtime colors so we always restore the latest state.
+            if (flashCoroutine == null)
+            {
+                CaptureCurrentColors();
+            }
+
             if (flashCoroutine != null)
             {
                 StopCoroutine(flashCoroutine);
@@ -50,11 +66,17 @@ namespace Metroidvania.Player
 
         private IEnumerator FlashCoroutine()
         {
-            SetColor(flashColor);
-
-            yield return new WaitForSeconds(flashDuration);
-
-            RestoreDefaultColors();
+            int repeatCount = Mathf.Max(1, flashRepeatCount);
+            for (int i = 0; i < repeatCount; i++)
+            {
+                SetColor(flashColor);
+                yield return new WaitForSeconds(flashDuration);
+                RestoreDefaultColors();
+                if (i < repeatCount - 1 && normalDuration > 0f)
+                {
+                    yield return new WaitForSeconds(normalDuration);
+                }
+            }
             flashCoroutine = null;
         }
 
@@ -80,7 +102,25 @@ namespace Metroidvania.Player
                     continue;
                 }
 
-                targetRenderers[i].color = defaultColors[i];
+                targetRenderers[i].color = restoreColors[i];
+            }
+        }
+
+        private void CaptureCurrentColors()
+        {
+            if (restoreColors == null || restoreColors.Length != targetRenderers.Length)
+            {
+                restoreColors = new Color[targetRenderers.Length];
+            }
+
+            for (int i = 0; i < targetRenderers.Length; i++)
+            {
+                if (targetRenderers[i] == null)
+                {
+                    continue;
+                }
+
+                restoreColors[i] = targetRenderers[i].color;
             }
         }
     }

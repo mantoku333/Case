@@ -1,5 +1,4 @@
-﻿using GameName.Enemy;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class AttackHitbox : MonoBehaviour
 {
@@ -8,12 +7,14 @@ public class AttackHitbox : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        EnemyController enemy = collision.GetComponent<EnemyController>();
+        MonoBehaviour[] behaviours = collision.GetComponentsInParent<MonoBehaviour>();
 
-        if (enemy != null)
+        for (int i = 0; i < behaviours.Length; i++)
         {
-            Debug.Log("敵に当たりました");
-            Destroy(collision.gameObject); 
+            if (behaviours[i] is IAttackReceiver receiver)
+            {
+                receiver.OnAttacked(this, collision);
+            }
         }
     }
 }

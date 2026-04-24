@@ -1029,7 +1029,7 @@ Transform:
   m_LocalScale: {x: 6.878378, y: 6.320633, z: 7.1597567}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 578071836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &347066801
 GameObject:
@@ -1079,6 +1079,7 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+  includeFallThroughFloorLayer: 1
 --- !u!61 &347066804
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1351,7 +1352,7 @@ Transform:
   m_LocalScale: {x: 4.0998144, y: 4.0998144, z: 4.0998144}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 578071836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &501272752
 GameObject:
@@ -1442,7 +1443,7 @@ Transform:
   m_LocalScale: {x: 3.6844833, y: 3.6844833, z: 3.6844833}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 578071836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &505280721
 GameObject:
@@ -1916,6 +1917,44 @@ MonoBehaviour:
       BarrelClipping: 0.25
       Anamorphism: 0
   BlendHint: 0
+--- !u!1 &578071835
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 578071836}
+  m_Layer: 0
+  m_Name: Bck
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &578071836
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 578071835}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 57.8994, y: -0.29949, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 316246192}
+  - {fileID: 901835334}
+  - {fileID: 430436041}
+  - {fileID: 1736920462}
+  - {fileID: 501272754}
+  - {fileID: 1447434383}
+  - {fileID: 1444637432}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &612945517
 GameObject:
   m_ObjectHideFlags: 0
@@ -3498,7 +3537,7 @@ Transform:
   m_LocalScale: {x: 6.878378, y: 6.320633, z: 7.1597567}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 578071836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &967464853
 GameObject:
@@ -3702,6 +3741,8 @@ MonoBehaviour:
   glideFallSpeed: -0.001
   glideMoveSpeed: 3.5
   gunController: {fileID: 2078664045}
+  closedUmbrellaSprite: {fileID: 0}
+  openDebugSprite: {fileID: 0}
   umbrella_open: {fileID: 8300000, guid: b23093459fc678f498899d1ceed37ba0, type: 3}
   umbrella_close: {fileID: 8300000, guid: 631315968a2b9e7428dc0aa7c2457e77, type: 3}
 --- !u!114 &974501602
@@ -43318,12 +43359,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1444637430}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 159.08, y: 7.22, z: 0.1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 101.1806, y: 7.51949, z: 0.1}
   m_LocalScale: {x: 2.0827346, y: 2.0827346, z: 2.0827346}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 578071836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1447434381
 GameObject:
@@ -43414,7 +43455,7 @@ Transform:
   m_LocalScale: {x: 5.504151, y: 5.504151, z: 5.504151}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 578071836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1474766319
 GameObject:
@@ -43813,6 +43854,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Metroidvania.Managers.DialogueGamePauser
   dialogueRunner: {fileID: 1563089470}
+  defaultPausePolicy: 3
 --- !u!114 &1563089468
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -44378,7 +44420,7 @@ Transform:
   m_LocalScale: {x: 3.684849, y: 3.684849, z: 3.684849}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 578071836}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1836184500
 GameObject:
@@ -44649,6 +44691,19 @@ MonoBehaviour:
   dialogueText: {fileID: 735668895}
   textSpeed: 30
   offset: {x: 0, y: 3, z: 0}
+  clampBubbleToScreen: 1
+  screenEdgePadding: {x: 24, y: 24}
+  speakerAnchors: []
+  tryAutoResolveSpeakerByObjectName: 1
+  logUnresolvedSpeaker: 1
+  autoResizeBubble: 1
+  bubblePadding: {x: 72, y: 44}
+  minBubbleWidth: 140
+  maxBubbleWidth: 980
+  minBubbleHeight: 84
+  maxBubbleHeight: 640
+  maxTextWidth: 900
+  logAutoSizeResult: 0
 --- !u!224 &1984818876
 RectTransform:
   m_ObjectHideFlags: 0
@@ -45076,7 +45131,6 @@ SceneRoots:
   m_Roots:
   - {fileID: 230841738}
   - {fileID: 619394802}
-  - {fileID: 1444637432}
   - {fileID: 775024343}
   - {fileID: 1554291606}
   - {fileID: 1733773065}
@@ -45092,6 +45146,7 @@ SceneRoots:
   - {fileID: 1984818876}
   - {fileID: 1545692534}
   - {fileID: 612945518}
+  - {fileID: 578071836}
   - {fileID: 316246192}
   - {fileID: 1447434383}
   - {fileID: 901835334}
