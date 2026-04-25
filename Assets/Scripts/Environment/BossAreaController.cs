@@ -27,6 +27,10 @@ public sealed class BossAreaController : MonoBehaviour
     [SerializeField] private int activeCameraPriority = 50;
     [SerializeField] private int inactiveCameraPriority = 0;
 
+    [Header("BGM")]
+    [SerializeField] private StageBgmController stageBgm;
+    [SerializeField] private bool returnToNormalAfterBoss;
+
     [Header("Confinement")]
     // エリア内拘束のマスターON/OFF（戦闘中のみ有効）
     [SerializeField] private bool confineInsideArea = true;
@@ -153,6 +157,7 @@ public sealed class BossAreaController : MonoBehaviour
 
         // カメラ切り替え -> ボス起動 の順で開始演出を揃える。
         ActivateBossCamera();
+        stageBgm?.PlayBoss();
 
         if (stageBossAttack != null)
         {
@@ -197,6 +202,11 @@ public sealed class BossAreaController : MonoBehaviour
         }
 
         DeactivateBossCamera();
+
+        if (returnToNormalAfterBoss)
+        {
+            stageBgm?.PlayNormal();
+        }
 
         if (verboseLogging)
         {
