@@ -3435,6 +3435,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Metroidvania.Managers.DialogueGamePauser
   dialogueRunner: {fileID: 1110069631}
+  defaultPausePolicy: 3
 --- !u!114 &1110069629
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4100,7 +4101,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 70e6bbcaa38569d438ef3071b9923275, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player.PlayerAbilityController
-  canDodge: 0
+  canDodge: 1
 --- !u!114 &1334323035
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4114,6 +4115,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player.PlayerHealth
   statsData: {fileID: 11400000, guid: 828b8bd6e59a0de45ac0b6f81b0916f1, type: 2}
+  damageCooldownSeconds: 3
 --- !u!1 &1336291260
 GameObject:
   m_ObjectHideFlags: 0
@@ -5141,6 +5143,23 @@ MonoBehaviour:
   dialogueText: {fileID: 870755023}
   textSpeed: 30
   offset: {x: 0, y: 3, z: 0}
+  clampBubbleToScreen: 1
+  screenEdgePadding: {x: 24, y: 24}
+  speakerAnchors: []
+  tryAutoResolveSpeakerByObjectName: 1
+  logUnresolvedSpeaker: 1
+  autoResizeBubble: 1
+  bubblePadding: {x: 72, y: 44}
+  minBubbleWidth: 140
+  maxBubbleWidth: 980
+  minBubbleHeight: 84
+  maxBubbleHeight: 640
+  maxTextWidth: 900
+  widenBubbleWhenLineCountExceeds: 2
+  extraHeightSafetyPadding: 12
+  logAutoSizeResult: 0
+  normalizeTextMargin: 1
+  normalizedTextMargin: {x: 0, y: 0, z: 12, w: 6}
 --- !u!224 &1649768094
 RectTransform:
   m_ObjectHideFlags: 0
