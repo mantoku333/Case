@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using GameName.Enemy;
 using Metroidvania.Enemy;
 using UnityEngine;
 
@@ -8,8 +9,7 @@ public class ParryHitbox : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        EnemyBullet bullet = collision.GetComponent<EnemyBullet>();
-        if (bullet != null)
+        if (IsEnemyAttack(collision))
         {
             if (!enemyAttacks.Contains(collision.gameObject))
             {
@@ -20,8 +20,7 @@ public class ParryHitbox : MonoBehaviour
 
     private void OnTriggerExit2D(Collider2D collision)
     {
-        EnemyBullet bullet = collision.GetComponent<EnemyBullet>();
-        if (bullet != null)
+        if (IsEnemyAttack(collision))
         {
             if (enemyAttacks.Contains(collision.gameObject))
             {
@@ -39,7 +38,7 @@ public class ParryHitbox : MonoBehaviour
         //無効をオブジェクト削除
         for (int i = enemyAttacks.Count - 1; i >= 0; i--)
         {
-            if (enemyAttacks[i] == null || !enemyAttacks[i].activeInHierarchy)
+            if (!IsTrackedAttackActive(enemyAttacks[i]))
             {
                 enemyAttacks.RemoveAt(i);
             }
@@ -67,6 +66,35 @@ public class ParryHitbox : MonoBehaviour
     /// </summary>
     public void ClearEnemyAttacks()
     {
-        enemyAttacks.Clear();
+        for (int i = enemyAttacks.Count - 1; i >= 0; i--)
+        {
+            if (enemyAttacks[i] == null || enemyAttacks[i].GetComponent<LastBossAttackParryTarget>() == null)
+            {
+                enemyAttacks.RemoveAt(i);
+            }
+        }
+    }
+
+    private static bool IsEnemyAttack(Collider2D collision)
+    {
+        return collision.GetComponent<EnemyBullet>() != null ||
+               collision.GetComponent<LastBossAttackParryTarget>() != null;
+    }
+
+    private static bool IsTrackedAttackActive(GameObject attackObject)
+    {
+        if (attackObject == null || !attackObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        LastBossAttackParryTarget lastBossAttack = attackObject.GetComponent<LastBossAttackParryTarget>();
+        if (lastBossAttack == null)
+        {
+            return true;
+        }
+
+        Collider2D attackCollider = lastBossAttack.GetComponent<Collider2D>();
+        return attackCollider != null && attackCollider.enabled;
     }
 }

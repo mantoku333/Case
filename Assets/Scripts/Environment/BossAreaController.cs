@@ -15,6 +15,7 @@ public sealed class BossAreaController : MonoBehaviour
 
     [Header("Boss")]
     [SerializeField] private StageBossAttack stageBossAttack;
+    [SerializeField] private LastBossController lastBossController;
     [SerializeField] private Transform bossRoot;
     [SerializeField] private string bossDefeatedFlagKey = GameProgressKeys.Boss01Defeated;
 
@@ -70,9 +71,19 @@ public sealed class BossAreaController : MonoBehaviour
             stageBossAttack = bossRoot.GetComponent<StageBossAttack>();
         }
 
+        if (lastBossController == null && bossRoot != null)
+        {
+            lastBossController = bossRoot.GetComponent<LastBossController>();
+        }
+
         if (bossRoot == null && stageBossAttack != null)
         {
             bossRoot = stageBossAttack.transform;
+        }
+
+        if (bossRoot == null && lastBossController != null)
+        {
+            bossRoot = lastBossController.transform;
         }
 
         if (bossRoot != null)
@@ -164,6 +175,11 @@ public sealed class BossAreaController : MonoBehaviour
             stageBossAttack.ActivateEncounter();
         }
 
+        if (lastBossController != null)
+        {
+            lastBossController.ActivateEncounter();
+        }
+
         if (disableTriggerAfterStart)
         {
             DisableTriggerComponents();
@@ -188,6 +204,11 @@ public sealed class BossAreaController : MonoBehaviour
         if (stageBossAttack != null)
         {
             stageBossAttack.DeactivateEncounter();
+        }
+
+        if (lastBossController != null)
+        {
+            lastBossController.DeactivateEncounter();
         }
 
         if (!string.IsNullOrWhiteSpace(bossDefeatedFlagKey))
@@ -220,6 +241,15 @@ public sealed class BossAreaController : MonoBehaviour
         {
             // StageBossAttack 側が残っている限り同一 transform をボス本体として扱う。
             bossRoot = stageBossAttack.transform;
+
+            if (bossRoot != null && bossRigidbody2D == null)
+            {
+                bossRigidbody2D = bossRoot.GetComponent<Rigidbody2D>();
+            }
+        }
+        else if (lastBossController != null)
+        {
+            bossRoot = lastBossController.transform;
 
             if (bossRoot != null && bossRigidbody2D == null)
             {
