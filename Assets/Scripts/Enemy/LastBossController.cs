@@ -5,6 +5,10 @@ using UnityEngine;
 
 namespace GameName.Enemy
 {
+    /// <summary>
+    /// LastBoss専用の戦闘制御。
+    /// BossAreaControllerから起動され、移動、攻撃選択、範囲攻撃、ジャストパリィ、ダウンをまとめて扱う。
+    /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(Collider2D))]
@@ -75,6 +79,8 @@ namespace GameName.Enemy
         [SerializeField, Min(0f)] private float enragedPulseSpeed = 8f;
         [SerializeField] private bool drawDebugGizmos = true;
 
+        // Update内の状態遷移を明示するための簡易ステート。
+        // ダウン中は攻撃更新を止め、赤い攻撃範囲も必ず非表示にする。
         private enum BossState
         {
             Inactive,
@@ -87,6 +93,7 @@ namespace GameName.Enemy
             Dead
         }
 
+        // 次に実行する攻撃種別。Noneは予約攻撃がない状態を表す。
         private enum BossAction
         {
             None,
@@ -127,6 +134,7 @@ namespace GameName.Enemy
         private float horizontalReadyTime;
         private float verticalReadyTime;
         private float hitStopRestoreTimeScale = 1f;
+        // 予兆中に成立したジャストパリィを、攻撃発生まで短時間だけ保持する。
         private float justParryValidUntil = -1f;
         private BossAction justParryBufferedAction = BossAction.None;
         private Color defaultSpriteColor = Color.white;
@@ -209,6 +217,7 @@ namespace GameName.Enemy
 
             if (downRoutineRunning)
             {
+                // ヒットストップ中もUpdateは走るため、ダウン開始後は攻撃更新を完全に止める。
                 StopMotion();
                 HideAttackVisual();
                 return;
@@ -266,6 +275,7 @@ namespace GameName.Enemy
             CachePlayerReferences();
             encounterActive = true;
             pendingAction = BossAction.None;
+            // BossAreaに入ってすぐ攻撃せず、調整可能な待ち時間後に初回行動を始める。
             stateTimer = initialActionDelay;
             state = BossState.InitialDelay;
             StopMotion();
@@ -285,6 +295,7 @@ namespace GameName.Enemy
 
         public void OnAttacked(AttackHitbox attacker, Collider2D hitCollider)
         {
+            // プレイヤー通常攻撃から呼ばれる被弾口。背後ヒットならダウンカウントを多めに加算する。
             if (state == BossState.Dead || currentHealth <= 0)
             {
                 return;
@@ -338,10 +349,12 @@ namespace GameName.Enemy
 
             if (pendingAction != BossAction.Vertical)
             {
+                // 横範囲は予兆中もプレイヤーXへ追従する。縦範囲はBeginAction時点の位置で固定する。
                 activeAttackBox = BuildAttackBox(pendingAction);
             }
 
             ShowAttackVisual(activeAttackBox, telegraphColor);
+            // 予兆中のパリィを短時間記録し、攻撃発生の1フレームだけに依存しないようにする。
             UpdateJustParryBuffer(pendingAction, activeAttackBox);
 
             stateTimer -= Time.deltaTime;
@@ -410,6 +423,7 @@ namespace GameName.Enemy
 
         private BossAction ChooseNextAction()
         {
+            // 範囲攻撃の直後は通常攻撃に戻し、通常攻撃2回後から距離に応じて範囲攻撃を選ぶ。
             if (previousAction == BossAction.Horizontal || previousAction == BossAction.Vertical)
             {
                 return BossAction.Normal;
@@ -464,6 +478,7 @@ namespace GameName.Enemy
         private void BeginAction(BossAction action)
         {
             StopMotion();
+            // 攻撃開始時点で向きと攻撃範囲を確定する。攻撃中はプレイヤーが回り込んでも振り向かない。
             FacePlayer();
             ClearJustParryBuffer();
             activeAttackBox = BuildAttackBox(action);
@@ -489,6 +504,7 @@ namespace GameName.Enemy
             ShowAttackVisual(activeAttackBox, attackColor);
         }
 
+        // 戻り値は「この攻撃解決でダウンが開始したか」。trueなら攻撃表示へ進めない。
         private bool ResolveAttack(BossAction action, AttackBox attackBox)
         {
             if (action == BossAction.Horizontal)
@@ -532,6 +548,7 @@ namespace GameName.Enemy
 
         private void ApplyDamageToPlayersInBox(BossAction action, AttackBox attackBox)
         {
+            // ダメージ判定は攻撃発生時に1回だけ行う。見た目の赤範囲表示時間とは別。
             int hitCount = Physics2D.OverlapBox(attackBox.Center, attackBox.Size, attackBox.Angle, playerContactFilter, playerHits);
             PlayerHealth damagedHealth = null;
 
@@ -557,6 +574,7 @@ namespace GameName.Enemy
 
         private bool IsRangeAttackParried(BossAction action, AttackBox attackBox)
         {
+            // 通常攻撃はジャストパリィ対象外。横/縦範囲攻撃だけダウンカウントを加算する。
             if (action != BossAction.Horizontal && action != BossAction.Vertical)
             {
                 return false;
@@ -572,6 +590,7 @@ namespace GameName.Enemy
 
         private void UpdateJustParryBuffer(BossAction action, AttackBox attackBox)
         {
+            // 予兆中に範囲内でパリィできていれば、justParryEffectDuration秒だけ成功扱いを保持する。
             if (action != BossAction.Horizontal && action != BossAction.Vertical)
             {
                 return;
@@ -712,6 +731,8 @@ namespace GameName.Enemy
 
             if (action == BossAction.Vertical && IsPlayerAvailable())
             {
+                // 縦範囲は「ボス頭上+指定高さ」から「プレイヤーX、ボス足元Y」へ斜めに伸ばす。
+                // この関数をBeginAction時にだけ呼ぶことで、予兆中にプレイヤーへ追従しない。
                 Vector2 start = new Vector2(bounds.center.x, bounds.max.y + verticalAttackStartHeight);
                 Vector2 end = new Vector2(playerTransform.position.x, bounds.min.y);
                 Vector2 direction = end - start;
@@ -862,6 +883,7 @@ namespace GameName.Enemy
         private IEnumerator EnterDownRoutine()
         {
             downRoutineRunning = true;
+            // ヒットストップ前にDownedへ入れて、同フレーム以降の攻撃更新を止める。
             state = BossState.Downed;
             StopMotion();
             HideAttackVisual();
@@ -872,6 +894,7 @@ namespace GameName.Enemy
             float previousTimeScale = Time.timeScale;
             if (useGlobalHitStop && hitStopDuration > 0f)
             {
+                // 全体停止のヒットストップ。終了時は必ず元のtimeScaleへ戻す。
                 hitStopRestoreTimeScale = previousTimeScale;
                 hitStopTimeScaleActive = true;
                 Time.timeScale = 0f;
@@ -1017,6 +1040,7 @@ namespace GameName.Enemy
 
             if (telegraphObject.GetComponent<LastBossAttackParryTarget>() == null)
             {
+                // ParryHitboxがLastBossの範囲攻撃を「敵攻撃」として検知するための目印。
                 telegraphObject.AddComponent<LastBossAttackParryTarget>();
             }
 
@@ -1037,6 +1061,7 @@ namespace GameName.Enemy
                 return;
             }
 
+            // 予兆オブジェクトはワールド座標で固定表示し、親の反転や移動の影響を受けにくくする。
             telegraphObject.transform.SetParent(null, true);
             telegraphObject.transform.position = new Vector3(attackBox.Center.x, attackBox.Center.y, transform.position.z);
             telegraphObject.transform.rotation = Quaternion.Euler(0f, 0f, attackBox.Angle);
@@ -1097,5 +1122,6 @@ namespace GameName.Enemy
 
     public sealed class LastBossAttackParryTarget : MonoBehaviour
     {
+        // LastBossの範囲攻撃予兆をParryHitboxへ知らせるためのマーカーコンポーネント。
     }
 }

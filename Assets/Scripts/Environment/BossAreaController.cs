@@ -14,6 +14,8 @@ public sealed class BossAreaController : MonoBehaviour
     [SerializeField] private bool disableTriggerAfterStart = true;
 
     [Header("Boss")]
+    // StageBoss用エリアではstageBossAttackのみ、LastBoss用エリアではlastBossControllerのみを設定する。
+    // 両方入れると同じBossAreaで両方のボスが起動するため、1エリア1ボスの設定にする。
     [SerializeField] private StageBossAttack stageBossAttack;
     [SerializeField] private LastBossController lastBossController;
     [SerializeField] private Transform bossRoot;
@@ -66,6 +68,7 @@ public sealed class BossAreaController : MonoBehaviour
         CacheConfinementBounds();
 
         // どちらか一方だけ設定されていても動くように参照を相互補完する。
+        // bossRootだけ設定されている場合でも、StageBoss/LastBossどちらかを自動取得する。
         if (stageBossAttack == null && bossRoot != null)
         {
             stageBossAttack = bossRoot.GetComponent<StageBossAttack>();
@@ -167,6 +170,7 @@ public sealed class BossAreaController : MonoBehaviour
         }
 
         // カメラ切り替え -> ボス起動 の順で開始演出を揃える。
+        // カメラ/BGMをボス戦用へ切り替えてから、設定されているボスを起動する。
         ActivateBossCamera();
         stageBgm?.PlayBoss();
 
